@@ -1,0 +1,14 @@
+// Copyright (c) 2012-2013 The Cryptonote developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#pragma once
+
+namespace nodetool
+{
+#ifndef TESTNET
+  const static boost::uuids::uuid P2P_NETWORK_ID = { { 0x13 ,0x30, 0x21, 0x31 , 0x31, 0x20 , 0x21, 0x21, 0x32, 0x31, 0x00, 0x32, 0x12, 0x31, 0x21, 0x10} }; //Bender's nightmare
+#else
+  const static boost::uuids::uuid P2P_NETWORK_ID = { { 0x13 ,0x30, 0x21, 0x31 , 0x31, 0x20 , 0x21, 0x21, 0x32, 0x31, 0x00, 0x32, 0x11, 0x31, 0x21, 0x10} }; //Another Bender's nightmare
+#endif
+}
