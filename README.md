@@ -44,3 +44,8 @@ To build, change to a directory where this file is located, and run this command
 
 And then do Build.
 Good luck!
+
+Donation:
+
+BTC:1686fd9JhPfTHwRtLz4GWPUKLfEifuh2m7
+DNC:DB71SSN71WSWzw9GyZFTReHCde5ga94HUad9iaS5Nme5PzGsZdyvdx62T3oAGG2PhrMRB5mkTZ93nCNmVgW58xT82cwbdXn
