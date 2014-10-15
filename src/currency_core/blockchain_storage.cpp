@@ -723,16 +723,12 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
   uint64_t h = get_block_height(b);
   
   bool r = false;
-  //once a day, without
-  if(h && !(h%CURRENCY_DONATIONS_INTERVAL) && h >= CURRENCY_DONATIONS_START_BLOCKNO)
+  //check every block
+  if(h >= CURRENCY_DONATIONS_START_BLOCKNO)
   {
     r = lookfor_donation(b.miner_tx, donation, royalty);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to lookfor_donation");
-    
-    //r = validate_donations_value(donation, royalty);
-    //CHECK_AND_ASSERT_MES(r, false, "Failed to validate donations value");   
+    CHECK_AND_ASSERT_MES(r, false, "Failed to lookfor_donation");   
   }
-
 
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CURRENCY_REWARD_BLOCKS_WINDOW);
@@ -742,8 +738,8 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
     LOG_PRINT_L0("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
   }
-    //once a day, without
-  if(h && !(h%CURRENCY_DONATIONS_INTERVAL) && h >= CURRENCY_DONATIONS_START_BLOCKNO)
+  //check every block
+  if(h >= CURRENCY_DONATIONS_START_BLOCKNO)
   {
     r = (base_reward ==10 * (donation + royalty));
     CHECK_AND_ASSERT_MES(r, false, "Failed to validate donations value");
