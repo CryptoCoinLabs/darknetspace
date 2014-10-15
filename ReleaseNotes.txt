@@ -1,3 +1,6 @@
+2014, Dec 15: v0.6.6
+Charge 10% developing bonus on every block from 4500th block, 1% for CryptoNote team, 9% for DarkNetSpace team.
+
 2014, Dec 12: v0.6.5
 Project is released, moved to GitHub.
 

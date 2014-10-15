@@ -108,13 +108,12 @@
   #define CURRENCY_ROYALTY_ADDRESS_TRACKING_KEY          "d95d2da6eddd558c5538eeefdbdbe48e968a08b4a720ca2eec5369aebba52904"
 
 
-
-
-
 #ifdef TESTNET
   #define CURRENCY_DONATIONS_INTERVAL                     10
+  #define CURRENCY_DONATIONS_START_BLOCKNO                50
 #else
   #define CURRENCY_DONATIONS_INTERVAL                     1440
+  #define CURRENCY_DONATIONS_START_BLOCKNO                4500
 #endif
 
 

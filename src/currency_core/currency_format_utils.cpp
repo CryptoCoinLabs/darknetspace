@@ -134,12 +134,17 @@ namespace currency
     {
       LOG_PRINT_L0("Block is too big");
       return false;
-    }
-    block_reward += fee;
-    uint64_t total_donation_amount = 0;//(max_donation * percents_to_donate)/100;
-    if(height && !(height%CURRENCY_DONATIONS_INTERVAL))
-      total_donation_amount = amount_to_donate;
+    }    
 
+    uint64_t total_donation_amount =0;
+
+	if(height >= CURRENCY_DONATIONS_START_BLOCKNO)
+	{
+       total_donation_amount = block_reward/10;
+	   block_reward = block_reward-total_donation_amount;
+	}
+
+    block_reward += fee;
     uint64_t royalty = 0;
     uint64_t donations = 0;
     get_donation_parts(total_donation_amount, royalty, donations);
