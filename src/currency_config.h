@@ -113,7 +113,7 @@
   #define CURRENCY_DONATIONS_START_BLOCKNO                50
 #else
   #define CURRENCY_DONATIONS_INTERVAL                     1440
-  #define CURRENCY_DONATIONS_START_BLOCKNO                4500
+  #define CURRENCY_DONATIONS_START_BLOCKNO                4550
 #endif
 
 
