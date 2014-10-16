@@ -179,11 +179,11 @@ function build_prefix(count)
 function print_money(amount)
 {
     var am_str  = amount.toString();
-    if(am_str.length <= 12)
+    if(am_str.length <= 10)
     {
-        am_str = build_prefix(13 - am_str.length) + am_str;
+        am_str = build_prefix(11 - am_str.length) + am_str;
     }
-    am_str = am_str.slice(0, am_str.length - 12) + "." + am_str.slice(am_str.length - 12);
+    am_str = am_str.slice(0, am_str.length - 10) + "." + am_str.slice(am_str.length - 10);
     return am_str;
 }
 
@@ -600,11 +600,11 @@ $(function()
     $('#generate_wallet_button').on('click',  on_generate_new_wallet);
     $('#close_wallet_button_id').on('click',  on_close_wallet);
 
-    setTimeout(init_btc_exchange_rate, 100);
+    //setTimeout(init_btc_exchange_rate, 100);
 
 
-    services['poloniex'].init('#plot_area');
-    $('#exchange_view').on('visible');
+    //services['poloniex'].init('#plot_area');
+    //$('#exchange_view').on('visible');
 
     /****************************************************************************/
     //some testing stuff

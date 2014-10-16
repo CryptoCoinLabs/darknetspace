@@ -191,7 +191,7 @@ void Html5ApplicationViewer::changeEvent(QEvent *e)
 			if (m_trayIcon)
 			{
 				QTimer::singleShot(250, this, SLOT(hide()));
-				m_trayIcon->showMessage("Boolberry app is minimized to tray",
+				m_trayIcon->showMessage("DarknetSpace app is minimized to tray",
 					"You can restore it with double-click or context menu");
 			}
 		}
@@ -229,7 +229,7 @@ void Html5ApplicationViewer::initTrayIcon(const std::string& htmlPath)
 	std::string iconPath(htmlPath + "/files/app22.png"); // X11 tray icon size is 22x22
 #endif
 	m_trayIcon->setIcon(QIcon(iconPath.c_str()));
-	m_trayIcon->setToolTip("Boolberry");
+	m_trayIcon->setToolTip("DarknetSpace");
 	connect(m_trayIcon.get(), SIGNAL(activated(QSystemTrayIcon::ActivationReason)), 
 		this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
 	m_trayIcon->show();
@@ -538,10 +538,10 @@ void Html5ApplicationViewer::message_box(const QString& msg)
 void Html5ApplicationViewer::generate_wallet()
 {
   QFileDialog dialogFile(this);  
-  std::string default_file = (tools::get_current_username() + "_wallet.bbr").c_str();
+  std::string default_file = (tools::get_current_username() + "_wallet.dnc").c_str();
   QString path = dialogFile.getSaveFileName(this, tr("Wallet file to store"),
     (m_config.wallets_last_used_dir + "/" + default_file).c_str(),
-    tr("Boolberry wallet (*.bbr *.bbr.keys);; All files (*.*)"));
+    tr("DarknetSpace wallet (*.dnc *.dnc.keys);; All files (*.*)"));
   
   if (!path.length())
     return;
@@ -564,7 +564,7 @@ void Html5ApplicationViewer::open_wallet()
 {
   QString path = QFileDialog::getOpenFileName(this, tr("Open wallet File"),
                                                    m_config.wallets_last_used_dir.c_str(),
-                                                   tr("Boolberry wallet (*.bbr *.bbr.keys);; All files (*.*)"));
+                                                   tr("DarknetSpace wallet (*.dnc *.dnc.keys);; All files (*.*)"));
   if(!path.length())
     return;
 

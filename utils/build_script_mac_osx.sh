@@ -1,6 +1,6 @@
-cd boolberry
+cd darknetspace
 if [ $? -ne 0 ]; then
-    echo "Failed to cd boolberry"
+    echo "Failed to cd darknetspace"
     exit $?
 fi
 
@@ -10,9 +10,11 @@ if [ $? -ne 0 ]; then
     exit $?
 fi
 
-rm -rf build; mkdir -p build/release; cd build/release;
+rm -rf build; mkdir -p build/release; 
 
-cmake -D BUILD_GUI=TRUE -D CMAKE_PREFIX_PATH=/Users/roky/Qt/5.3/clang_64 -D CMAKE_BUILD_TYPE=Release ../..
+cd build/release;
+
+cmake -D BUILD_GUI=TRUE -D CMAKE_PREFIX_PATH=/Users/phil/Qt/5.3/clang_64 -D CMAKE_BUILD_TYPE=Release ../..
 if [ $? -ne 0 ]; then
     echo "Failed to cmake"
     exit $?
@@ -20,9 +22,9 @@ fi
 
 
 
-make qt-boolb
+make qt-dnsp
 if [ $? -ne 0 ]; then
-    echo "Failed to make qt-boolb"
+    echo "Failed to make qt-dnsp"
     exit $?
 fi
 
@@ -33,25 +35,25 @@ if [ $? -ne 0 ]; then
     exit $?
 fi
 
-/Users/roky/Qt/5.3/clang_64/bin/macdeployqt qt-boolb.app
+/Users/phil/Qt/5.3/clang_64/bin/macdeployqt qt-dnsp.app
 if [ $? -ne 0 ]; then
     echo "Failed to macdeployqt qt-boolb.app"
     exit $?
 fi
 
-cp -R ../../../src/gui/qt-daemon/html qt-boolb.app/Contents/MacOS
+cp -R ../../../src/gui/qt-daemon/html qt-dnsp.app/Contents/MacOS
 if [ $? -ne 0 ]; then
     echo "Failed to cp html to MacOS"
     exit $?
 fi
 
-cp ../../../src/gui/qt-daemon/app.icns qt-boolb.app/Contents/Resources
+cp ../../../src/gui/qt-daemon/app.icns qt-dnsp.app/Contents/Resources
 if [ $? -ne 0 ]; then
     echo "Failed to cp app.icns to resources"
     exit $?
 fi
 
-zip -r -y "bbr-macos-x64-v0.2.0.zip" qt-boolb.app
+zip -r -y "dnsp-macos-x64-v0.2.0.zip" qt-dnsp.app
 if [ $? -ne 0 ]; then
     echo "Failed to zip app"
     exit $?

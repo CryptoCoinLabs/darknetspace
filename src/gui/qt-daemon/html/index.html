@@ -35,7 +35,7 @@
             <div class="menu_bar_tabs">
                 <div id="daemon_state_view_menu" class="inline_menu_bar_item"  view_name="daemon_state_view">Connectivity</div>
                 <div id="wallet_view_menu"  class="inline_menu_bar_item" view_name="wallet_view">Wallet</div>
-                <div id="exchange_view_menu"  class="inline_menu_bar_item" view_name="exchange_view" callback="on_exchange_tab_switch">Exchange</div>
+                <div id="exchange_view_menu"  class="inline_menu_bar_item" view_name="exchange_view" callback="on_exchange_tab_switch" style="display: none">Exchange</div>
             </div>
         </div>
     </div>
@@ -93,10 +93,13 @@
                     <span class="wallet_balance" id="wallet_balance">0.0</span>
                     <span class="balance_text">Unlocked:</span>
                     <span class="wallet_balance" id="wallet_unlocked_balance">0.0</span>
+                    <!-- 
                     <span class="balance_text">Est. value:
                     <span class="wallet_balance" id="est_value_btc_id"></span>BTC/<span class="wallet_balance" id="est_value_usd_id"></span>USD</span><span  style="font-size: 40%"><br><br></span>
+                    -->
+                    <br><br>
                     <span class="wallet_secondary_text" >Path:</span>
-                    <span class="my_addres_text" id="wallet_path">C:\home\projects\boolberry\build\src\Release\wallet.bin</span><br>
+                    <span class="my_addres_text" id="wallet_path">C:\home\projects\DarknetSpace\build\src\Release\wallet.bin</span><br>
                     <span class="wallet_secondary_text">Address:</span>
                     <span class="my_addres_text" id="wallet_address">1HNJjUsofq5LYLoXem119dd491yFAb5g4bCHkecV4sPqigmuxw57Ci9am71fEN4CRmA9jgnvo5PDNfaq8QnprWmS5uLqnbq</span><br>
                 </div>
