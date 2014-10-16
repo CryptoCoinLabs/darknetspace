@@ -22,6 +22,23 @@ using namespace epee;
 #include "currency_core/alias_helper.h"
 using namespace currency;
 
+namespace
+{
+void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
+{
+  keys_file = file_path;
+  wallet_file = file_path;
+  boost::system::error_code e;
+  if(string_tools::get_extension(keys_file) == "keys")
+  {//provided keys file name
+    wallet_file = string_tools::cut_off_extension(wallet_file);
+  }else
+  {//provided wallet file name
+    keys_file += ".keys";
+  }
+}
+} //namespace
+
 namespace tools
 {
 //----------------------------------------------------------------------------------------------------
@@ -582,6 +599,16 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   store();
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
+{
+  std::string keys_file, wallet_file;
+  do_prepare_file_names(file_path, keys_file, wallet_file);
+
+  boost::system::error_code ignore;
+  keys_file_exists = boost::filesystem::exists(keys_file, ignore);
+  wallet_file_exists = boost::filesystem::exists(wallet_file, ignore);
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
 {
   m_keys_file = file_path;
@@ -605,7 +632,7 @@ bool wallet2::check_connection()
   net_utils::http::url_content u;
   net_utils::parse_url(m_daemon_address, u);
   if(!u.port)
-    u.port = 8081;  
+    u.port = RPC_DEFAULT_PORT;  
   return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
 }
 //----------------------------------------------------------------------------------------------------

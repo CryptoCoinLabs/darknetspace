@@ -164,6 +164,7 @@ namespace tools
       a & m_transfer_history;
 
     }
+    static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists);
     static uint64_t select_indices_for_transfer(std::list<size_t>& ind, std::map<uint64_t, std::list<size_t> >& found_free_amounts, uint64_t needed_money);
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
