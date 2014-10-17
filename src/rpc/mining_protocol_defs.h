@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #pragma once
+
 #include "currency_protocol/currency_protocol_defs.h"
 #include "currency_core/currency_basic.h"
 #include "crypto/hash.h"

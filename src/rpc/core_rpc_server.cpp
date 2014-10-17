@@ -2,6 +2,12 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "warnings.h"
+PUSH_WARNINGS
+DISABLE_VS_WARNINGS(4100)
+DISABLE_VS_WARNINGS(4503)
+DISABLE_VS_WARNINGS(4244)
+DISABLE_VS_WARNINGS(4101)
 
 #include <boost/foreach.hpp>
 #include "include_base_utils.h"

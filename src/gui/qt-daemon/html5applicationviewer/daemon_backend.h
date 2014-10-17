@@ -5,11 +5,6 @@
 #pragma once
 
 #include <boost/program_options.hpp>
-#include "warnings.h"
-PUSH_WARNINGS
-DISABLE_VS_WARNINGS(4100)
-DISABLE_VS_WARNINGS(4503)
-#include "include_base_utils.h"
 #include "version.h"
 
 using namespace epee;

@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 
+#include "include_base_utils.h"
 #include "daemon_backend.h"
 #include "currency_core/alias_helper.h"
 

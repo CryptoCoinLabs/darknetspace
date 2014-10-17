@@ -2,19 +2,15 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "include_base_utils.h"
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <fstream>
-
-#include "include_base_utils.h"
 #include "account.h"
-#include "warnings.h"
 #include "crypto/crypto.h"
 #include "currency_core/currency_basic_impl.h"
 #include "currency_core/currency_format_utils.h"
 using namespace std;
-
-DISABLE_VS_WARNINGS(4244 4345)
 
   namespace currency
 {

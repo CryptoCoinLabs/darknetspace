@@ -3,6 +3,7 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "include_base_utils.h"
 #include "html5applicationviewer.h"
 
 #include <QCoreApplication>
@@ -21,7 +22,6 @@
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QTimer>
-#include "warnings.h"
 #include "net/http_client.h"
 
 class Html5ApplicationViewerPrivate : public QGraphicsView

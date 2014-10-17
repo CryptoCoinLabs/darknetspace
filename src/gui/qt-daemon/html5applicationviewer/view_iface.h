@@ -4,15 +4,10 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #pragma once
-
+#include "include_base_utils.h"
 #include <stdint.h>
 #include <QObject>
 #ifndef Q_MOC_RUN
-#include "warnings.h"
-
-PUSH_WARNINGS
-DISABLE_VS_WARNINGS(4100)
-DISABLE_VS_WARNINGS(4503)
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage_template_helper.h"
 #include "rpc/core_rpc_server_commands_defs.h"

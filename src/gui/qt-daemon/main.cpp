@@ -3,6 +3,7 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "include_base_utils.h"
 #include <QApplication>
 #include "html5applicationviewer/html5applicationviewer.h"
 #include "qdebug.h"

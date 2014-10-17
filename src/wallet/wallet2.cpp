@@ -2,12 +2,10 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-
+#include "include_base_utils.h"
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
-
 #include <boost/utility/value_init.hpp>
-#include "include_base_utils.h"
 using namespace epee;
 
 #include "wallet2.h"

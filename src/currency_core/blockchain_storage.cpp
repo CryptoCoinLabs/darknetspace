@@ -3,12 +3,12 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "include_base_utils.h"
 #include <algorithm>
 #include <cstdio>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 
-#include "include_base_utils.h"
 #include "currency_basic_impl.h"
 #include "blockchain_storage.h"
 #include "currency_format_utils.h"

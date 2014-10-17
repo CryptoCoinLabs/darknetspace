@@ -3,6 +3,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #pragma once
+#include "warnings.h"
+PUSH_WARNINGS
+DISABLE_VS_WARNINGS(4100)
+DISABLE_VS_WARNINGS(4503)
+DISABLE_VS_WARNINGS(4244)
+DISABLE_VS_WARNINGS(4101)
 
 #include <boost/variant.hpp>
 #include <boost/functional/hash/hash.hpp>

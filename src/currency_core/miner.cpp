@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 
+#include "include_base_utils.h"
 #include <sstream>
 #include <numeric>
 #include <boost/utility/value_init.hpp>
@@ -11,7 +12,6 @@
 #include <boost/limits.hpp>
 #include <boost/foreach.hpp>
 #include "misc_language.h"
-#include "include_base_utils.h"
 #include "currency_basic_impl.h"
 #include "currency_format_utils.h"
 #include "file_io_utils.h"

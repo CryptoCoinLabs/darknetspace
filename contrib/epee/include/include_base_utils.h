@@ -29,6 +29,9 @@
 #define BOOST_FILESYSTEM_VERSION 3
 #define ENABLE_RELEASE_LOGGING
 
+#include "warnings.h"
+PUSH_WARNINGS
+DISABLE_VS_WARNINGS(4100 4101 4244 4345 4503 )
 #include "misc_log_ex.h"
 
 
