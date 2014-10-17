@@ -203,6 +203,51 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::ask_wallet_create_if_needed()
+{
+  std::string wallet_path;
+
+  wallet_path = command_line::input_line(
+      "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
+      "Wallet file name: "
+  );
+
+  bool keys_file_exists;
+  bool wallet_file_exists;
+  tools::wallet2::wallet_exists(wallet_path, keys_file_exists, wallet_file_exists);
+
+  // add logic to error out if new wallet requested but named wallet file exists
+  if (keys_file_exists || wallet_file_exists)
+  {
+    if (!m_generate_new.empty())
+    {
+      fail_msg_writer() << "Attempting to generate wallet, but specified file(s) exist.  Exiting to not risk overwriting.";
+      return false;
+    }
+  }
+
+  bool r;
+  if(keys_file_exists)
+  {
+    m_wallet_file = wallet_path;
+    r = true;
+  }else
+  {
+    if(!wallet_file_exists)
+    {
+      std::cout << "The wallet doesn't exist, generating new one" << std::endl;
+      m_generate_new = wallet_path;
+      r = true;
+    }else
+    {
+      fail_msg_writer() << "failed to open wallet \"" << wallet_path << "\". Keys file wasn't found";
+      r = false;
+    }
+  }
+
+  return r;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   handle_command_line(vm);
@@ -213,13 +258,14 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     return false;
   }
 
-  size_t c = 0; 
-  if(!m_generate_new.empty()) ++c;
-  if(!m_wallet_file.empty()) ++c;
-  if (1 != c)
+  if(!m_generate_new.empty() && !m_wallet_file.empty())
   {
-    fail_msg_writer() << "you must specify --wallet-file or --generate-new-wallet params";
+    fail_msg_writer() << "Specifying both --generate-new-wallet=\"wallet_name\" and --wallet-file=\"wallet_name\" doesn't make sense!";
     return false;
+  }
+  else if (m_generate_new.empty() && m_wallet_file.empty())
+  {
+    if(!ask_wallet_create_if_needed()) return false;
   }
 
   if (m_daemon_host.empty())
@@ -390,6 +436,8 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   COMMAND_RPC_START_MINING::request req;
   req.miner_address = m_wallet->get_account().get_public_address_str();
 
+  bool ok = true;
+  size_t max_mining_threads_count = (std::max)(std::thread::hardware_concurrency(), static_cast<unsigned>(2));
   if (0 == args.size())
   {
     req.threads_count = 1;
@@ -397,17 +445,19 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   else if (1 == args.size())
   {
     uint16_t num;
-    bool ok = string_tools::get_xtype_from_string(num, args[0]);
-    if(!ok || 0 == num)
-    {
-      fail_msg_writer() << "wrong number of mining threads: \"" << args[0] << "\"";
-      return true;
-    }
+    ok = string_tools::get_xtype_from_string(num, args[0]);
+    ok &= (1 <= num && num <= max_mining_threads_count);
     req.threads_count = num;
   }
   else
   {
-    fail_msg_writer() << "wrong number of arguments, expected the number of mining threads";
+    ok = false;
+  }
+
+  if (!ok)
+  {
+    fail_msg_writer() << "invalid arguments. Please use start_mining [<number_of_threads>], " <<
+      "<number_of_threads> should be from 1 to " << max_mining_threads_count;
     return true;
   }
 
@@ -436,6 +486,7 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
     fail_msg_writer() << "mining has NOT been stopped: " << err;
   return true;
 }
+
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_new_block(uint64_t height, const currency::block& block)
 {
@@ -914,6 +965,7 @@ int main(int argc, char* argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
+	  success_msg_writer() << CURRENCY_NAME << " wallet v" << PROJECT_VERSION_LONG;
       success_msg_writer() << "Usage: simplewallet [--wallet-file=<file>|--generate-new-wallet=<file>] [--daemon-address=<host>:<port>] [<COMMAND>]";
       success_msg_writer() << desc_all << '\n' << w.get_commands_str();
       return false;

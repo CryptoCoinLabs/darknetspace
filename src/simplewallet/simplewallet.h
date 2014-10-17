@@ -30,7 +30,7 @@ namespace currency
     bool deinit();
     bool run();
     void stop();
-
+	bool ask_wallet_create_if_needed();
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
     std::string get_commands_str();

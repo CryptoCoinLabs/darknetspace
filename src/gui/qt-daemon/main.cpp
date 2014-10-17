@@ -1,4 +1,5 @@
 // Copyright (c) 2012-2013 The Boolberry developers
+// Copyright (c) 2014-2014 The DarkNetSpace developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -16,7 +17,7 @@ int main(int argc, char *argv[])
     Html5ApplicationViewer viewer;
     viewer.setOrientation(Html5ApplicationViewer::ScreenOrientationAuto);
     viewer.showExpanded();
-    viewer.setWindowTitle("DarknetSpace");
+    viewer.setWindowTitle("DarkNetSpace");
         
     if(!viewer.start_backend(argc, argv))
       return false;
