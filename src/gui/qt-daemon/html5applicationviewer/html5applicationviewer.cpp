@@ -192,7 +192,7 @@ void Html5ApplicationViewer::changeEvent(QEvent *e)
 			if (m_trayIcon)
 			{
 				QTimer::singleShot(250, this, SLOT(hide()));
-				m_trayIcon->showMessage("DarknetSpace app is minimized to tray",
+				m_trayIcon->showMessage("DarkNetSpace app is minimized to tray",
 					"You can restore it with double-click or context menu");
 			}
 		}
@@ -230,7 +230,7 @@ void Html5ApplicationViewer::initTrayIcon(const std::string& htmlPath)
 	std::string iconPath(htmlPath + "/files/app22.png"); // X11 tray icon size is 22x22
 #endif
 	m_trayIcon->setIcon(QIcon(iconPath.c_str()));
-	m_trayIcon->setToolTip("DarknetSpace");
+	m_trayIcon->setToolTip("DarkNetSpace");
 	connect(m_trayIcon.get(), SIGNAL(activated(QSystemTrayIcon::ActivationReason)), 
 		this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
 	m_trayIcon->show();
@@ -406,12 +406,12 @@ bool Html5ApplicationViewer::money_transfer(const view::transfer_event_info& tei
   double amount = double(tei.ti.amount) * (1e-12);
   if (tei.ti.height == 0) // unconfirmed trx
   {
-	  QString msg = QString("BBR%1 is received").arg(amount);
+	  QString msg = QString("DNC%1 is received").arg(amount);
 	  m_trayIcon->showMessage("Income transfer (unconfirmed)", msg);
   }
   else // confirmed trx
   {
-	  QString msg = QString("BBR%1 is confirmed").arg(amount);
+	  QString msg = QString("DNC%1 is confirmed").arg(amount);
 	  m_trayIcon->showMessage("Income transfer confirmed", msg);
   }
   return true;
@@ -542,7 +542,7 @@ void Html5ApplicationViewer::generate_wallet()
   std::string default_file = (tools::get_current_username() + "_wallet.dnc").c_str();
   QString path = dialogFile.getSaveFileName(this, tr("Wallet file to store"),
     (m_config.wallets_last_used_dir + "/" + default_file).c_str(),
-    tr("DarknetSpace wallet (*.dnc *.dnc.keys);; All files (*.*)"));
+    tr("DarkNetSpace wallet (*.dnc *.dnc.keys);; All files (*.*)"));
   
   if (!path.length())
     return;
@@ -565,7 +565,7 @@ void Html5ApplicationViewer::open_wallet()
 {
   QString path = QFileDialog::getOpenFileName(this, tr("Open wallet File"),
                                                    m_config.wallets_last_used_dir.c_str(),
-                                                   tr("DarknetSpace wallet (*.dnc *.dnc.keys);; All files (*.*)"));
+                                                   tr("DarkNetSpace wallet (*.dnc *.dnc.keys);; All files (*.*)"));
   if(!path.length())
     return;
 

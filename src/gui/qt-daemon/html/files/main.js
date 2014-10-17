@@ -629,8 +629,8 @@ $(function()
                 rcv: [1000, 1000, 1000, 1000],//rcv: ["0.0000001000", "0.0000001000", "0.0000001000", "0.0000001000"],
                 spn: [1000, 1000]//spn: ["0.0000001000", "0.0000001000"]
             },
-            recipient: "1Htb4dS5vfR53S5RhQuHyz7hHaiKJGU3qfdG2fvz1pCRVf3jTJ12mia8SJsvCo1RSRZbHRC1rwNvJjkURreY7xAVUDtaumz",
-            recipient_alias: "just-mike"
+            recipient: "DB71SSN71WSWzw9GyZFTReHCde5ga94HUad9iaS5Nme5PzGsZdyvdx62T3oAGG2PhrMRB5mkTZ93nCNmVgW58xT82cwbdXn",
+            recipient_alias: "darknetspace"
         },
         balance: 1000,
         unlocked_balance: 1000
@@ -648,8 +648,8 @@ $(function()
     tttt.ti.fee = 1000000000;
     tttt.ti.payment_id = "";
     tttt.ti.amount =  10123000000000;
-    tttt.ti.recipient = "1Htb4dS5vfR53S5RhQuHyz7hHaiKJGU3qfdG2fvz1pCRVf3jTJ12mia8SJsvCo1RSRZbHRC1rwNvJjkURreY7xAVUDtaumz";
-    tttt.ti.recipient_alias = "zoidberg";
+    tttt.ti.recipient = "DB71SSN71WSWzw9GyZFTReHCde5ga94HUad9iaS5Nme5PzGsZdyvdx62T3oAGG2PhrMRB5mkTZ93nCNmVgW58xT82cwbdXn";
+    tttt.ti.recipient_alias = "darknetspace";
 
 
     on_money_transfer(tttt);
@@ -657,8 +657,8 @@ $(function()
     tttt.ti.tx_hash = "u19670a07875c0239df165ec43958fdbf4fc258caf7456415eafabc281c21c2";
     tttt.ti.is_income = false;
     tttt.ti.payment_id = undefined;
-    tttt.ti.recipient = "1Htb4dS5vfR53S5RhQuHyz7hHaiKJGU3qfdG2fvz1pCRVf3jTJ12mia8SJsvCo1RSRZbHRC1rwNvJjkURreY7xAVUDtaumz";
-    tttt.ti.recipient_alias = "tifozi";
+    tttt.ti.recipient = "DB71SSN71WSWzw9GyZFTReHCde5ga94HUad9iaS5Nme5PzGsZdyvdx62T3oAGG2PhrMRB5mkTZ93nCNmVgW58xT82cwbdXn";
+    tttt.ti.recipient_alias = "darknetspace";
 
     on_money_transfer(tttt);
 
@@ -735,7 +735,7 @@ function request_polo()
     req_arams = {
         method: "GET"
     };
-    secure_request_url("https://poloniex.com/public?command=returnTradeHistory&currencyPair=BTC_BBR", JSON.stringify(req_arams), "on_polo_request_fetched");
+    secure_request_url("https://poloniex.com/public?command=returnTradeHistory&currencyPair=BTC_DNC", JSON.stringify(req_arams), "on_polo_request_fetched");
 }
 
 
@@ -776,7 +776,7 @@ services['poloniex'] = {
     update: function(data) {
         if(data !== undefined)
         {
-            console.log("fetched: https://poloniex.com/public?command=returnTradeHistory&currencyPair=BTC_BBR");
+            console.log("fetched: https://poloniex.com/public?command=returnTradeHistory&currencyPair=BTC_DNC");
             $('#pololastprice').html(data[0].rate + "BTC");
             current_exchange_rate = parseFloat(data[0].rate);
 

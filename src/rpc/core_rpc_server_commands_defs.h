@@ -17,7 +17,7 @@ namespace currency
 #define CORE_RPC_STATUS_OK          "OK"
 #define CORE_RPC_STATUS_BUSY        "BUSY"
 #define CORE_RPC_STATUS_NOT_FOUND   "NOT FOUND"
-#define CORE_RPC_STATUS_FAILED        "FAILED"
+#define CORE_RPC_STATUS_FAILED      "FAILED"
 
 
   struct alias_rpc_details_base
