@@ -403,15 +403,15 @@ bool Html5ApplicationViewer::money_transfer(const view::transfer_event_info& tei
 	  return true;
   if (!tei.ti.is_income)
 	  return true;
-  double amount = double(tei.ti.amount) * (1e-12);
+  double amount = double(tei.ti.amount) * (1e-10);
   if (tei.ti.height == 0) // unconfirmed trx
   {
-	  QString msg = QString("DNC%1 is received").arg(amount);
+	  QString msg = QString("DNC %1 is received").arg(amount);
 	  m_trayIcon->showMessage("Income transfer (unconfirmed)", msg);
   }
   else // confirmed trx
   {
-	  QString msg = QString("DNC%1 is confirmed").arg(amount);
+	  QString msg = QString("DNC %1 is confirmed").arg(amount);
 	  m_trayIcon->showMessage("Income transfer confirmed", msg);
   }
   return true;
