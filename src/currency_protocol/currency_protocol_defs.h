@@ -150,4 +150,77 @@ namespace currency
     };
   };
 
+
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct transaction_remote_release_request_data
+  {
+	  uint32_t version;
+	  crypto::public_key pub;
+	  std::list<blobdata>   txs;
+	  BEGIN_KV_SERIALIZE_MAP()
+		  KV_SERIALIZE(version)
+		  KV_SERIALIZE(pub)
+		  KV_SERIALIZE(txs)
+	  END_KV_SERIALIZE_MAP()
+  };
+
+  struct transaction_remote_release_request_relay
+  {
+	  uint32_t next_ip_address;
+	  uint32_t next_port;
+	  blobdata trr_encrypted_request_data;
+	  BEGIN_KV_SERIALIZE_MAP()
+		  KV_SERIALIZE(next_ip_address)
+		  KV_SERIALIZE(next_port)
+		  KV_SERIALIZE(trr_data)
+	  END_KV_SERIALIZE_MAP()
+  };
+
+  struct transaction_remote_release_response_data
+  {
+	  uint32_t report_ip_address;
+	  uint32_t issue_ip_address;
+	  uint32_t response_status;
+	  BEGIN_KV_SERIALIZE_MAP()
+		  KV_SERIALIZE(report_ip_address)
+		  KV_SERIALIZE(issue_ip_address)
+		  KV_SERIALIZE(response_status)
+	  END_KV_SERIALIZE_MAP()
+  };
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct NOTIFY_REQUEST_TRR
+  {
+	  const static int ID = BC_COMMANDS_POOL_BASE + 20;
+
+	  struct request
+	  {
+		  blobdata  trr_encrypted_request_data;
+
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(trr_encrypted_request_data)
+		  END_KV_SERIALIZE_MAP()
+	  };
+  };
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct NOTIFY_RESPONSE_TRR
+  {
+	  const static int ID = BC_COMMANDS_POOL_BASE + 21;
+
+	  struct request
+	  {
+		  blobdata  trr_encrypted_reponse_data;
+
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(trr_encrypted_reponse_data)
+		  END_KV_SERIALIZE_MAP()
+	  };
+  };
 }
