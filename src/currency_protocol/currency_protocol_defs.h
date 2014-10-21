@@ -215,7 +215,7 @@ namespace currency
 
 	  struct request
 	  {
-		  blobdata  trr_encrypted_rseponse_data;
+		  blobdata  trr_encrypted_response_data;
 
 		  BEGIN_KV_SERIALIZE_MAP()
 			  KV_SERIALIZE(trr_encrypted_response_data)
