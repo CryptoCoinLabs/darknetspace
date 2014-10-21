@@ -161,7 +161,6 @@ namespace currency
 	  std::list<blobdata>   txs;
 	  BEGIN_KV_SERIALIZE_MAP()
 		  KV_SERIALIZE(version)
-
 		  KV_SERIALIZE(txs)
 	  END_KV_SERIALIZE_MAP()
   };
@@ -176,7 +175,7 @@ namespace currency
 		  KV_SERIALIZE(next_ip_address)
 		  KV_SERIALIZE(next_port)
 		  KV_SERIALIZE(pub)	
-		  KV_SERIALIZE(trr_data)
+		  KV_SERIALIZE(trr_encrypted_request_data)
 	  END_KV_SERIALIZE_MAP()
   };
 
