@@ -158,11 +158,10 @@ namespace currency
   struct transaction_remote_release_request_data
   {
 	  uint32_t version;
-	  crypto::public_key pub;
 	  std::list<blobdata>   txs;
 	  BEGIN_KV_SERIALIZE_MAP()
 		  KV_SERIALIZE(version)
-		  KV_SERIALIZE(pub)
+
 		  KV_SERIALIZE(txs)
 	  END_KV_SERIALIZE_MAP()
   };
@@ -171,10 +170,12 @@ namespace currency
   {
 	  uint32_t next_ip_address;
 	  uint32_t next_port;
+	  crypto::public_key pub;
 	  blobdata trr_encrypted_request_data;
 	  BEGIN_KV_SERIALIZE_MAP()
 		  KV_SERIALIZE(next_ip_address)
 		  KV_SERIALIZE(next_port)
+		  KV_SERIALIZE(pub)	
 		  KV_SERIALIZE(trr_data)
 	  END_KV_SERIALIZE_MAP()
   };
@@ -201,9 +202,8 @@ namespace currency
 	  struct request
 	  {
 		  blobdata  trr_encrypted_request_data;
-
-		  BEGIN_KV_SERIALIZE_MAP()
-			  KV_SERIALIZE(trr_encrypted_request_data)
+		  BEGIN_KV_SERIALIZE_MAP() 
+				KV_SERIALIZE(trr_encrypted_request_data)
 		  END_KV_SERIALIZE_MAP()
 	  };
   };
