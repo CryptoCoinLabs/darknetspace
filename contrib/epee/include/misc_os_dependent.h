@@ -51,7 +51,16 @@ namespace misc_utils
         inline uint64_t get_tick_count()
         {
 #if defined(_MSC_VER)
-                return ::GetTickCount64();
+        LARGE_INTEGER TicksPerSecond = { 0 };  
+        LARGE_INTEGER Tick;  
+        if (!TicksPerSecond.QuadPart)  
+            QueryPerformanceFrequency(&TicksPerSecond);  
+        QueryPerformanceCounter(&Tick);  
+        __int64 Seconds = Tick.QuadPart / TicksPerSecond.QuadPart;  
+        __int64 LeftPart = Tick.QuadPart - (TicksPerSecond.QuadPart*Seconds);  
+        __int64 MillSeconds = LeftPart * 1000 / TicksPerSecond.QuadPart;  
+        __int64 Ret = Seconds * 1000 + MillSeconds;  
+        return Ret;  
 #elif defined(__MACH__)
                 clock_serv_t cclock;
                 mach_timespec_t mts;
