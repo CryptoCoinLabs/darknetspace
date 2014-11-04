@@ -8,8 +8,8 @@ function fixup() {
 }
 
 fixup_lib() {
-    FROM="\"/opt/local/lib/"$1"\""
-    TO="\"@executable_path/lib/"$1"\""
+    FROM="/usr/local/lib/"$1""
+    TO="@executable_path/lib/"$1""
     fixup $FROM $TO $2
 }
 
