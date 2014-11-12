@@ -55,43 +55,48 @@ namespace net_utils
     time_t   m_last_send;
     uint64_t m_recv_cnt;
     uint64_t m_send_cnt;
+    int m_socket;
 
-    connection_context_base(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income, time_t last_recv = 0, time_t last_send = 0, uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
+    connection_context_base(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income, int sockfd, time_t last_recv = 0, time_t last_send = 0, uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
                                             m_remote_ip(remote_ip),
                                             m_remote_port(remote_port),
                                             m_is_income(is_income),
+                                            m_socket(sockfd),
                                             m_last_recv(last_recv),
                                             m_last_send(last_send),
                                             m_recv_cnt(recv_cnt),
                                             m_send_cnt(send_cnt),
                                             m_started(time(NULL))
+                                            
     {}
 
     connection_context_base(): m_connection_id(),
                                m_remote_ip(0),
                                m_remote_port(0),
                                m_is_income(false),
+                               m_socket(0),
                                m_last_recv(0),
                                m_last_send(0),
                                m_recv_cnt(0),
                                m_send_cnt(0),
                                m_started(time(NULL))
+                              
     {}
 
     connection_context_base& operator=(const connection_context_base& a)
     {
-      set_details(a.m_connection_id, a.m_remote_ip, a.m_remote_port, a.m_is_income);
+      set_details(a.m_connection_id, a.m_remote_ip, a.m_remote_port, a.m_is_income, a.m_socket);
       return *this;
     }
     
   private:
     template<class t_protocol_handler>
     friend class connection;
-    void set_details(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income)
+    void set_details(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income, int sockfd)
     {
       this->~connection_context_base();
-      new(this) connection_context_base(connection_id, remote_ip, remote_port, is_income);
+      new(this) connection_context_base(connection_id, remote_ip, remote_port, is_income, sockfd);
     }
 
 	};

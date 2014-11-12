@@ -122,7 +122,7 @@ DISABLE_VS_WARNINGS(4355)
     context = boost::value_initialized<t_connection_context>();
     long ip_ = boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong());
 
-    context.set_details(boost::uuids::random_generator()(), ip_, remote_ep.port(), is_income);
+    context.set_details(boost::uuids::random_generator()(), ip_, remote_ep.port(), is_income, socket_.native_handle());
     context.m_last_send = context.m_last_recv = time(NULL);
    
     LOG_PRINT_L3("[sock " << socket_.native_handle() << "] new connection, remote end_point: " << print_connection_context_short(context) <<

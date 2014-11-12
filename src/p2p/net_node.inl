@@ -16,7 +16,161 @@
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
+#include <stdarg.h>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/case_conv.hpp> // for to_lower()
+#include <boost/algorithm/string/predicate.hpp> // for startswith() and endswith()
 
+
+#ifdef WIN32
+//#define _WIN32_WINNT 0x0501
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+//#define FD_SETSIZE 1024 // max number of fds in fd_set
+#include <winsock2.h>
+#include <mswsock.h>
+#include <ws2tcpip.h>
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/fcntl.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#endif
+
+
+inline int myclosesocket(int& hSocket)
+{
+#ifdef WIN32
+    int ret = closesocket(hSocket);
+#else
+    int ret = close(hSocket);
+#endif
+    return ret;
+}
+#define closesocket(s)      myclosesocket(s)
+
+inline bool static  error(const char *str)
+{
+    LOG_ERROR("ERROR:" << str);
+    return false;
+}
+
+#define MSG_NOSIGNAL        0
+inline bool static Socks5(std::string strDest, int port, int hSocket)
+{
+	LOG_PRINT_L2("SOCKS5 connecting "<<strDest.c_str() <<":"<<port<<"[id="<<hSocket<<"]");
+    if (strDest.size() > 255)
+    {
+        closesocket(hSocket);
+        return error("Hostname too long");
+    }
+    char pszSocks5Init[] = "\5\1\0";
+    size_t nSize = sizeof(pszSocks5Init) - 1;
+
+    size_t ret = send(hSocket, pszSocks5Init, nSize, MSG_NOSIGNAL);
+    if (ret != nSize)
+    {
+        closesocket(hSocket);
+        return error("Error sending to proxy");
+    }
+    char pchRet1[2];
+    if (recv(hSocket, pchRet1, 2, 0) != 2)
+    {
+        closesocket(hSocket);
+        return error("Error reading proxy response1");
+    }
+    if (pchRet1[0] != 0x05 || pchRet1[1] != 0x00)
+    {
+        closesocket(hSocket);
+        return error("Proxy failed to initialize");
+    }
+    std::string strSocks5("\5\1");
+    strSocks5 += '\000'; strSocks5 += '\003';
+    strSocks5 += static_cast<char>(std::min((int)strDest.size(), 255));
+    strSocks5 += strDest;
+    strSocks5 += static_cast<char>((port >> 8) & 0xFF);
+    strSocks5 += static_cast<char>((port >> 0) & 0xFF);
+
+    ret = send(hSocket, strSocks5.c_str(), strSocks5.size(), MSG_NOSIGNAL);
+    if (ret != (size_t)strSocks5.size())
+    {
+        closesocket(hSocket);
+        return error("Error sending to proxy");
+    }
+
+    const static int wantRecv = 4;
+    char pchRet2[wantRecv];
+    int nRecv = recv(hSocket, pchRet2, wantRecv, 0);
+    if (nRecv != wantRecv)
+    {
+		closesocket(hSocket);
+        return error("Error reading proxy response2");
+    }
+
+    if (pchRet2[0] != 0x05)
+    {
+        closesocket(hSocket);
+        return error("Proxy failed to accept request");
+    }
+    if (pchRet2[1] != 0x00)
+    {
+        closesocket(hSocket);
+        switch (pchRet2[1])
+        {
+            case 0x01: return error("Proxy error: general failure");
+            case 0x02: return error("Proxy error: connection not allowed");
+            case 0x03: return error("Proxy error: network unreachable");
+            case 0x04: return error("Proxy error: host unreachable");
+            case 0x05: return error("Proxy error: connection refused");
+            case 0x06: return error("Proxy error: TTL expired");
+            case 0x07: return error("Proxy error: protocol error");
+            case 0x08: return error("Proxy error: address type not supported");
+            default:   return error("Proxy error: unknown");
+        }
+    }
+    if (pchRet2[2] != 0x00)
+    {
+        closesocket(hSocket);
+        return error("Error: malformed proxy response");
+    }
+
+    char pchRet3[256];
+    switch (pchRet2[3])
+    {
+        case 0x01: ret = recv(hSocket, pchRet3, 4, 0) != 4; break;
+        case 0x04: ret = recv(hSocket, pchRet3, 16, 0) != 16; break;
+        case 0x03:
+        {
+            ret = recv(hSocket, pchRet3, 1, 0) != 1;
+            if (ret)
+                return error("Error reading from proxy1");
+            int nRecv = pchRet3[0];
+            ret = recv(hSocket, pchRet3, nRecv, 0) != nRecv;
+            break;
+        }
+        default: closesocket(hSocket); return error("Error: malformed proxy response");
+    }
+
+    if (ret)
+    {
+        closesocket(hSocket);
+        return error("Error reading from proxy2");
+    }
+
+    if (recv(hSocket, pchRet3, 2, 0) != 2)
+    {
+        closesocket(hSocket);
+        return error("Error reading from proxy3");
+    }
+
+    LOG_PRINT_L2("SOCKS5 connected "<< strDest.c_str()<<":"<<port);
+    return true;
+}
 
 namespace nodetool
 {
@@ -30,7 +184,16 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_priority_node   = {"add-priority-node", "Specify list of peers to connect to and attempt to keep the connection open"};
     const command_line::arg_descriptor<bool>                      arg_p2p_use_only_priority_nodes   = {"use-only-priority-nodes", "Try to connect only to priority nodes"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
-    const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};  }
+    const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
+  
+	//for Proxy
+	const command_line::arg_descriptor<bool>        arg_p2p_enable_proxy = { "enable-proxy", "Enable proxy, only Socks5 supported"};
+	const command_line::arg_descriptor<std::string> arg_p2p_proxy_ip =     {"proxy-ip","Set Socks5 proxy ip address(127.0.0.1)","127.0.0.1"};
+	const command_line::arg_descriptor<uint32_t>    arg_p2p_proxy_port =   { "proxy-port","Set Socks5 proxy port(9050)",9050};
+
+	//for Tor
+	const command_line::arg_descriptor<uint32_t>    arg_p2p_enable_tor =   { "enable-tor","Enable Tor network"};
+  }
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -45,6 +208,10 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_seed_node);    
     command_line::add_arg(desc, arg_p2p_hide_my_port);   
     command_line::add_arg(desc, arg_p2p_use_only_priority_nodes);       
+    command_line::add_arg(desc, arg_p2p_enable_proxy);    
+    command_line::add_arg(desc, arg_p2p_proxy_ip);   
+    command_line::add_arg(desc, arg_p2p_proxy_port); 
+    command_line::add_arg(desc, arg_p2p_enable_tor);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -131,6 +298,57 @@ namespace nodetool
     return string_tools::parse_peer_from_string(pe.ip, pe.port, node_addr);
   }
   //-----------------------------------------------------------------------------------
+ template<class t_payload_net_handler>
+ bool node_server<t_payload_net_handler>::get_proxy_status(std::string & proxy_ip,int &proxy_port)
+ {
+	 proxy_ip = m_szProxy_ip;
+	 proxy_port = m_nProxy_port;
+	 return m_bEnable_proxy;
+ }
+  //-----------------------------------------------------------------------------------
+ template<class t_payload_net_handler>
+ bool node_server<t_payload_net_handler>::enable_proxy(bool bEnable_proxy,bool bReConnect,const std::string & proxy_ip,const int proxy_port)
+  {
+	  bool bReturn = true;
+	  if(bEnable_proxy == m_bEnable_proxy) return false;
+
+	  if(bEnable_proxy)
+	  {
+		  std::string str = proxy_ip + ":" + string_tools::num_to_string_fast(proxy_port);
+		  nodetool::net_address na = AUTO_VAL_INIT(na);
+		  bool r = parse_peer_from_string(na, str);
+
+		  if (r == true && proxy_ip.compare("0.0.0.0")!=0 && proxy_port != 0) 
+		  {
+			  LOG_PRINT_L0("Proxy: " << str);
+			  m_szProxy_ip = proxy_ip;
+			  m_nProxy_port = proxy_port;
+			  m_bEnable_proxy = true;
+		  }
+		  else 
+		  {
+			  LOG_ERROR("Failed to parse proxy ip address and port from : " << str << ". Proxy will be disabled.");
+			  bReturn = false;
+			  m_bEnable_proxy = false;
+		  }
+	  }
+	  else
+	  {
+		  m_bEnable_proxy = false;
+	  }
+	  if(bReturn && bReConnect)
+	  {
+		  LOG_PRINT_L0("Reconnect all connects");
+		  m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+		  {
+			  m_net_server.get_config_object().close(cntxt.m_connection_id );
+			  return true;
+		  });	  
+	  }
+	  return bReturn;
+ }
+
+  //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_command_line(const boost::program_options::variables_map& vm)
   {
@@ -181,7 +399,20 @@ namespace nodetool
       }
     }
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
-      m_hide_my_port = true;    return true;
+      m_hide_my_port = true; 
+	
+	
+	//For Tor
+	m_bEnable_tor = command_line::get_arg(vm, arg_p2p_enable_tor);
+
+	//For proxy
+	bool bEnable_proxy = command_line::get_arg(vm, arg_p2p_enable_proxy);
+	std::string proxy_ip = command_line::get_arg(vm, arg_p2p_proxy_ip);
+	int proxy_port = command_line::get_arg(vm, arg_p2p_proxy_port);
+
+	enable_proxy(bEnable_proxy,false,proxy_ip,proxy_port);
+
+	return true;
   }
   //-----------------------------------------------------------------------------------
   namespace
@@ -485,7 +716,7 @@ namespace nodetool
 
     if(!hsh_result)
     {
-      LOG_PRINT_CC_L0(context_, "COMMAND_HANDSHAKE Failed");
+      LOG_PRINT_CC_L1(context_, "COMMAND_HANDSHAKE Failed");
       m_net_server.get_config_object().close(context_.m_connection_id);
     }
 
@@ -588,24 +819,32 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, bool white)
   {
-    LOG_PRINT_L2("Connecting to " << string_tools::get_ip_string_from_int32(na.ip)  << ":" << string_tools::num_to_string_fast(na.port) << "(white=" << white << ", last_seen: " << (last_seen_stamp?misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never" ) << ")...");
+	typename net_server::t_connection_context con = AUTO_VAL_INIT(con); 
+	if(m_bEnable_proxy)//connecting var proxy
+	{	
+		m_na = na;
+		LOG_PRINT_L2("Connecting to proxy "  << m_szProxy_ip << ":" << string_tools::num_to_string_fast(m_nProxy_port));
+		bool res = m_net_server.connect(m_szProxy_ip, string_tools::num_to_string_fast(m_nProxy_port), m_config.m_net_config.connection_timeout, con);
+		if(!res)
+		{
+			LOG_PRINT_CC_RED(con,"Connecting to proxy failed " << m_szProxy_ip << ":" << string_tools::num_to_string_fast(m_nProxy_port) << " ,please check your proxy setting or disable proxy by \"disable-proxy\" command.",LOG_LEVEL_0);
+			return false;
+		}
+		LOG_PRINT_CC_GREEN(con, "Node " << string_tools::get_ip_string_from_int32(na.ip)  << ":" << string_tools::num_to_string_fast(na.port) << " connected var Proxy " << m_szProxy_ip << ":" << string_tools::num_to_string_fast(m_nProxy_port), LOG_LEVEL_1);
+	}
+	else//no proxy
+	{
+		LOG_PRINT_L2("Connecting to node " << string_tools::get_ip_string_from_int32(na.ip)  << ":" << string_tools::num_to_string_fast(na.port) << "(white=" << white << ", last_seen: " << (last_seen_stamp?misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never" ) << ")...");
+		bool res = m_net_server.connect(string_tools::get_ip_string_from_int32(na.ip),string_tools::num_to_string_fast(na.port),m_config.m_net_config.connection_timeout,con);
+		if(!res)
+		{
+			LOG_PRINT_L2("Connecting to node failed "<< string_tools::get_ip_string_from_int32(na.ip)<< ":" << string_tools::num_to_string_fast(na.port));
+			return false;
+		}
+	}	
 
-    typename net_server::t_connection_context con = AUTO_VAL_INIT(con);
-    bool res = m_net_server.connect(string_tools::get_ip_string_from_int32(na.ip),
-      string_tools::num_to_string_fast(na.port),
-      m_config.m_net_config.connection_timeout,
-      con);
-    if(!res)
-    {
-      LOG_PRINT_L2("Connect failed to "
-        << string_tools::get_ip_string_from_int32(na.ip)
-        << ":" << string_tools::num_to_string_fast(na.port)
-        /*<< ", try " << try_count*/);
-      //m_peerlist.set_peer_unreachable(pe);
-      return false;
-    }
     peerid_type pi = AUTO_VAL_INIT(pi);
-    res = do_handshake_with_peer(pi, con, just_take_peerlist);
+    bool res = do_handshake_with_peer(pi, con, just_take_peerlist);
     if(!res)
     {
       LOG_PRINT_CC_L2(con, "Failed to HANDSHAKE with peer "
@@ -1272,13 +1511,52 @@ namespace nodetool
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::on_connection_new(p2p_connection_context& context)
   {
-    LOG_PRINT_L2("["<< net_utils::print_connection_context(context) << "] NEW CONNECTION");
+	  LOG_PRINT_L2("["<< net_utils::print_connection_context(context) << "] NEW CONNECTION");
+
+	  if(m_bEnable_proxy == false) return;
+
+	  LOG_PRINT_L2("Connecting to node " << string_tools::get_ip_string_from_int32(m_na.ip)  << ":" << string_tools::num_to_string_fast(m_na.port) << " via proxy...");
+
+	  int hSocket = context.m_socket;
+
+#ifdef WIN32
+	  u_long fNonblock = 0;
+	  if (ioctlsocket(hSocket, FIONBIO, &fNonblock) == SOCKET_ERROR)
+#else
+	  int fFlags = fcntl(hSocket, F_GETFL, 0);
+	  if (fcntl(hSocket, F_SETFL, fFlags &~ O_NONBLOCK) == -1)
+#endif
+	  {
+		  closesocket(hSocket);
+		  return;
+	  }
+
+	  int res = ::Socks5(std::string(string_tools::get_ip_string_from_int32(m_na.ip)), m_na.port, hSocket);
+
+#ifdef WIN32
+	  fNonblock = 1;
+	  if(ioctlsocket(hSocket, FIONBIO, &fNonblock) == SOCKET_ERROR)
+#else
+	  if (fcntl(hSocket, F_SETFL, fFlags) == -1)
+#endif
+	  {
+		  closesocket(hSocket);
+		  return;
+	  }
+
+	  if(!res)
+	  {
+		  LOG_PRINT_L0("Connect failed to "<< string_tools::get_ip_string_from_int32(m_na.ip)	<< ":" << string_tools::num_to_string_fast(m_na.port)	<< " via proxy");
+		  closesocket(hSocket);
+		  return;
+	  }
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::on_connection_close(p2p_connection_context& context)
   {
     LOG_PRINT_L2("["<< net_utils::print_connection_context(context) << "] CLOSE CONNECTION");
+	closesocket(context.m_socket);
   }
   //-----------------------------------------------------------------------------------
 }

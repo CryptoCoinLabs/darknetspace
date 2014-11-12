@@ -40,6 +40,8 @@ public:
  	//m_cmd_binder.set_handler("set_donations", boost::bind(&daemon_cmmands_handler::set_donations, this, _1), "Set donations mode: true if you vote for donation, and false - if against");
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
     m_cmd_binder.set_handler("get_transactions_statics", boost::bind(&daemon_cmmands_handler::get_transactions_statistics, this, _1), "Calculates transactions statistics");
+    m_cmd_binder.set_handler("enable_proxy", boost::bind(&daemon_cmmands_handler::enable_proxy, this, _1), "Enable Socks5 proxy, enable_proxy <proxy_ip_address>  <proxy_port>");
+    m_cmd_binder.set_handler("disable_proxy", boost::bind(&daemon_cmmands_handler::disable_proxy, this, _1), "Disable Socks5 proxy");
   }
 
   bool start_handling()
@@ -365,5 +367,50 @@ private:
     m_srv.get_payload_object().get_core().get_miner().stop();
     return true;
   }
+  //--------------------------------------------------------------------------------
+  bool enable_proxy(const std::vector<std::string>& args)
+  {
+    if(args.size() != 2)
+    {
+      std::cout << "Please, specify the ip address and the port of Socks5 proxy "<< std::endl;
+      return true;
+    }
+	std::string proxy_ip;
+	int proxy_port = 0;
+	bool bEnable_proxy = m_srv.get_proxy_status(proxy_ip,proxy_port);
+
+	if(bEnable_proxy) 
+    {
+      std::cout << "Proxy:  "<< proxy_ip << ":" << proxy_port << " already enabled. Don't enable it again. " << std::endl;
+      return true;
+    }
+
+	if(m_srv.enable_proxy(true,true,args[0],atoi(args[1].c_str())))
+	{
+		std::cout << "Proxy:  "<< proxy_ip << ":" << proxy_port << " enabled now. " << std::endl;
+	}
+	
+    return true;
+  }
+ //--------------------------------------------------------------------------------
+  bool disable_proxy(const std::vector<std::string>& args)
+  {
+ 	std::string proxy_ip;
+	int proxy_port = 0;
+	bool bEnable_proxy = m_srv.get_proxy_status(proxy_ip,proxy_port);
+	
+	if(bEnable_proxy == false) 
+    {
+      std::cout << "Proxy:  "<< proxy_ip << ":" << proxy_port << " already disabled. Don't disable it again. " << std::endl;
+      return true;
+    }
+	if(m_srv.enable_proxy(false,true))
+	{
+		std::cout << "Proxy:  "<< proxy_ip << ":" << proxy_port << " disabled now. " << std::endl;
+	 }
+		
+     return true;
+  }
+ //--------------------------------------------------------------------------------
 };
 POP_WARNINGS

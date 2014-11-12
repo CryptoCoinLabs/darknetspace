@@ -95,6 +95,8 @@ namespace nodetool
       a & m_maintainers_entry_local;
       a & m_blocked_ips;
     }
+	bool enable_proxy(bool bEnable_proxy,bool bReConnect = false,const std::string & proxy_ip = "",const int proxy_port = 0);
+	bool get_proxy_status(std::string & proxy_ip,int &proxy_port);
     // debug functions
     bool log_peerlist();
     bool log_connections();
@@ -186,7 +188,6 @@ namespace nodetool
     bool critical_alert_worker();
     bool remove_dead_connections();
 
-
     //debug functions
     std::string print_connections_container();
     
@@ -258,6 +259,15 @@ namespace nodetool
     critical_section m_ip_fails_score_lock;
     std::map<uint32_t, uint64_t> m_ip_fails_score;
 
+    ////
+    net_address m_na;
+
+	//for Proxy
+	bool m_bEnable_proxy;
+	std::string m_szProxy_ip;
+	uint32_t m_nProxy_port;
+	//for tor
+	bool m_bEnable_tor;
   };
 }
 
