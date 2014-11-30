@@ -26,7 +26,7 @@ Debug build: run `make build-debug`.
 
 Test suite: run `make test-release` to run tests in addition to building. Running `make test-debug` will do the same to the debug version.
 
-Building with Clang: it may be possible to use Clang instead of GCC, but this may not work everywhere. To build, run `export CC=clang CXX=clang++` before running `make`.
+Building with Clang: it may be possible to use Clang instead of GCC, but this may not work everywhere. To build, run `export CC=clang CXX=clang++` before running `make`. *Warning, this will change your enviroment variable, if you do not know what this is, don't do it.
 
 ### Windows
 
