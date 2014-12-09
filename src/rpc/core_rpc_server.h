@@ -32,6 +32,7 @@ namespace currency
     bool on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res, connection_context& cntx);
     bool on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, connection_context& cntx);
     bool on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res, connection_context& cntx);
+
     bool on_get_indexes(const COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request& req, COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response& res, connection_context& cntx);
     bool on_send_raw_tx(const COMMAND_RPC_SEND_RAW_TX::request& req, COMMAND_RPC_SEND_RAW_TX::response& res, connection_context& cntx);
     bool on_start_mining(const COMMAND_RPC_START_MINING::request& req, COMMAND_RPC_START_MINING::response& res, connection_context& cntx);
@@ -40,6 +41,10 @@ namespace currency
     bool on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, connection_context& cntx);
     bool on_set_maintainers_info(const COMMAND_RPC_SET_MAINTAINERS_INFO::request& req, COMMAND_RPC_SET_MAINTAINERS_INFO::response& res, connection_context& cntx);
     bool on_get_tx_pool(const COMMAND_RPC_GET_TX_POOL::request& req, COMMAND_RPC_GET_TX_POOL::response& res, connection_context& cntx);
+
+    bool on_get_blocks_by_heights(const COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS::request& req, COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS::response& res, connection_context& cntx);
+	bool on_get_transactions_json(const COMMAND_RPC_GET_TRANSACTIONS_JSON::request& req, COMMAND_RPC_GET_TRANSACTIONS_JSON::response& res, connection_context& cntx);
+	bool on_get_tx_pool_json(const COMMAND_RPC_GET_TX_POOL_JSON::request& req, COMMAND_RPC_GET_TX_POOL_JSON::response& res, connection_context& cntx);
 
     //json_rpc
     bool on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, connection_context& cntx);
@@ -76,7 +81,13 @@ namespace currency
       MAP_URI_AUTO_BIN2("/getrandom_outs.bin", on_get_random_outs, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS)
       MAP_URI_AUTO_BIN2("/set_maintainers_info.bin", on_set_maintainers_info, COMMAND_RPC_SET_MAINTAINERS_INFO)
       MAP_URI_AUTO_BIN2("/get_tx_pool.bin", on_get_tx_pool, COMMAND_RPC_GET_TX_POOL)
-      MAP_URI_AUTO_JON2("/gettransactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
+	  MAP_URI_AUTO_BIN2("/getblocks.bin", on_get_blocks, COMMAND_RPC_GET_BLOCKS_FAST)
+	  MAP_URI_AUTO_JON2("/gettransactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
+
+	  MAP_URI_AUTO_JON2("/get_transactions", on_get_transactions_json, COMMAND_RPC_GET_TRANSACTIONS_JSON)
+      MAP_URI_AUTO_JON2("/get_tx_pool", on_get_tx_pool_json, COMMAND_RPC_GET_TX_POOL_JSON)
+	  MAP_URI_AUTO_JON2("/get_blocks_by_heights", on_get_blocks_by_heights, COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS)
+
       MAP_URI_AUTO_JON2("/sendrawtransaction", on_send_raw_tx, COMMAND_RPC_SEND_RAW_TX)
       MAP_URI_AUTO_JON2("/start_mining", on_start_mining, COMMAND_RPC_START_MINING)
       MAP_URI_AUTO_JON2("/stop_mining", on_stop_mining, COMMAND_RPC_STOP_MINING)

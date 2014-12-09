@@ -19,6 +19,9 @@ namespace tools
   std::string get_default_user_dir();
   std::string get_current_username();
   std::string get_os_version_string();
+  void get_clear_json(std::string &str);
+  int string_replace(std::string &strBase, std::string strSrc, std::string strDes);
+
   bool create_directories_if_necessary(const std::string& path);
   std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name);
 

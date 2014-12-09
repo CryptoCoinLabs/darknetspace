@@ -93,6 +93,34 @@ namespace currency
     };
   };
   //-----------------------------------------------
+ struct COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS
+  {
+    struct request
+    {
+      uint64_t    start_height;
+	  uint64_t    blocks_count;
+	  std::string genesis_hash;
+      BEGIN_KV_SERIALIZE_MAP()
+		KV_SERIALIZE(blocks_count)
+		KV_SERIALIZE(start_height)
+		KV_SERIALIZE(genesis_hash)
+	  END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+	  std::list<block_complete_entry> blocks;
+      uint64_t  blocks_count;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+		KV_SERIALIZE(blocks)
+        KV_SERIALIZE(blocks_count)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  //-----------------------------------------------
   struct COMMAND_RPC_GET_TRANSACTIONS
   {
     struct request
@@ -103,7 +131,6 @@ namespace currency
         KV_SERIALIZE(txs_hashes)
       END_KV_SERIALIZE_MAP()
     };
-
 
     struct response
     {
@@ -118,6 +145,8 @@ namespace currency
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  typedef  COMMAND_RPC_GET_TRANSACTIONS COMMAND_RPC_GET_TRANSACTIONS_JSON;
   //-----------------------------------------------
   struct COMMAND_RPC_GET_TX_POOL
   {
@@ -130,6 +159,26 @@ namespace currency
     struct response
     {
       std::list<blobdata> txs;  //transactions blobs
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txs)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+ //-----------------------------------------------
+  struct COMMAND_RPC_GET_TX_POOL_JSON
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+	  std::list<std::string> txs;  //transactions blobs as hex
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()

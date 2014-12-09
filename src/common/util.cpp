@@ -23,6 +23,31 @@ namespace tools
 {
   std::function<void(void)> signal_handler::m_handler;
 
+  int string_replace(std::string &strBase, std::string strSrc, std::string strDes)  
+  {  
+	  std::string::size_type pos = 0;  
+	  std::string::size_type srcLen = strSrc.size();  
+	  std::string::size_type desLen = strDes.size();  
+	  pos=strBase.find(strSrc, pos);   
+	  int nCount = 0;
+	  while ((pos != std::string::npos))  
+	  {  
+		  strBase.replace(pos, srcLen, strDes);  
+		  pos=strBase.find(strSrc, (pos+desLen));  
+		  nCount++;
+	  }  
+	  return nCount;
+  }  
+   
+   void get_clear_json(std::string &str)
+   {
+	   string_replace(str,"\\n","");
+	   string_replace(str,"\\","");
+	   string_replace(str," ","");
+	   string_replace(str,"\"{","{");
+	   string_replace(str,"}\"","}");
+   }
+
 #ifdef WIN32
   std::string get_windows_version_display_string()
   {

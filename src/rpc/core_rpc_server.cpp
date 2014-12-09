@@ -144,6 +144,59 @@ namespace currency
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_blocks_by_heights(const COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS::request& req, COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS::response& res, connection_context& cntx)
+  {
+    CHECK_CORE_READY();
+	uint64_t count = 0;
+	uint64_t maxheight = m_core.get_blockchain_storage().get_current_blockchain_height();
+	std::list<std::pair<block, std::list<transaction>>> bs;
+	std::list<crypto::hash> block_ids;
+
+	if(maxheight < req.start_height) 
+	{
+		res.status = "Failed, no such height: " + std::to_string(req.start_height);
+	}
+	count = req.blocks_count > COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT ? COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT: req.blocks_count;
+
+	if(maxheight < req.start_height + count && maxheight > req.start_height)
+		count = maxheight - req.start_height;
+
+	crypto::hash hash;
+    for(int i = 0; i < count; i++)
+    {
+		hash = m_core.get_blockchain_storage().get_block_id_by_height(req.start_height+i);
+		block_ids.push_back(hash);
+	}
+	std::string buff;
+	if(!string_tools::parse_hexstr_to_binbuff(req.genesis_hash, buff))
+	{
+		res.status = "Failed to parse hex representation of transaction hash";
+		return false;
+	}
+	memcpy(hash.data,buff.c_str(),HASH_SIZE);
+	block_ids.push_back(hash);
+	uint64_t current,start;
+	if(!m_core.find_blockchain_supplement(block_ids, bs, current, start, count))
+    {
+      res.status = "Failed";
+      return false;
+    }
+
+	BOOST_FOREACH(auto& b, bs)
+	{
+		res.blocks.resize(res.blocks.size()+1);
+		res.blocks.back().block = obj_to_json_str(b.first);
+		BOOST_FOREACH(auto& t, b.second)
+		{
+			res.blocks.back().txs.push_back(obj_to_json_str(t));
+		}
+	}
+
+	res.blocks_count = count;
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res, connection_context& cntx)
   {
     CHECK_CORE_READY();
@@ -214,10 +267,32 @@ namespace currency
       res.txs.push_back(t_serializable_object_to_blob(tx));
     }
     res.status = CORE_RPC_STATUS_OK;
+	LOG_PRINT_L2("COMMAND_RPC_GET_TX_POOL: [" << res.txs.size() << "]");
+    return true;
+  }
+ //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_tx_pool_json(const COMMAND_RPC_GET_TX_POOL_JSON::request& req, COMMAND_RPC_GET_TX_POOL_JSON::response& res, connection_context& cntx)
+  {
+    CHECK_CORE_READY();
+    std::list<transaction> txs;
+    if (!m_core.get_pool_transactions(txs))
+    {
+      res.status = "Failed to call get_pool_transactions()";
+      return true;
+    }
+
+    for(auto& tx: txs)
+    {
+		std::string str = currency::obj_to_json_str(tx);
+
+		res.txs.push_back(str);
+    }
+    res.status = CORE_RPC_STATUS_OK;
+	LOG_PRINT_L2("COMMAND_RPC_GET_TX_POOL: [" << res.txs.size() << "]");
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_transactions_json(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res, connection_context& cntx)
   {
     CHECK_CORE_READY();
     std::vector<crypto::hash> vh;
@@ -246,6 +321,47 @@ namespace currency
 
     BOOST_FOREACH(auto& tx, txs)
     {
+      blobdata blob = currency::obj_to_json_str(tx);
+      res.txs_as_hex.push_back(blob);
+    }
+
+    BOOST_FOREACH(const auto& miss_tx, missed_txs)
+    {
+      res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
+    }
+    res.status = CORE_RPC_STATUS_OK;
+	LOG_PRINT_L2("COMMAND_RPC_GET_TRANSACTIONS: [ txs_as_hex = " << res.txs_as_hex.size() << " | missed_tx = " << res.missed_tx.size() << "]");
+    return true;
+  }
+//------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res, connection_context& cntx)
+  {
+    CHECK_CORE_READY();
+    std::vector<crypto::hash> vh;
+    BOOST_FOREACH(const auto& tx_hex_str, req.txs_hashes)
+    {
+      blobdata b;
+      if(!string_tools::parse_hexstr_to_binbuff(tx_hex_str, b))
+      {
+        res.status = "Failed to parse hex representation of transaction hash";
+        return true;
+      }
+      if(b.size() != sizeof(crypto::hash))
+      {
+        res.status = "Failed, size of data mismatch";
+      }
+      vh.push_back(*reinterpret_cast<const crypto::hash*>(b.data()));
+    }
+    std::list<crypto::hash> missed_txs;
+    std::list<transaction> txs;
+    bool r = m_core.get_transactions(vh, txs, missed_txs);
+    if(!r)
+    {
+      res.status = "Failed";
+      return true;
+    }
+	BOOST_FOREACH(auto& tx, txs)
+    {
       blobdata blob = t_serializable_object_to_blob(tx);
       res.txs_as_hex.push_back(string_tools::buff_to_hex_nodelimer(blob));
     }
@@ -256,6 +372,7 @@ namespace currency
     }
 
     res.status = CORE_RPC_STATUS_OK;
+	LOG_PRINT_L2("COMMAND_RPC_GET_TRANSACTIONS: [ txs_as_hex = " << res.txs_as_hex.size() << " | missed_tx = " << res.missed_tx.size() << "]");
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

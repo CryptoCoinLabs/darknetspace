@@ -74,6 +74,7 @@
       } \
       uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
       epee::serialization::store_t_to_json(static_cast<command_type::response&>(resp), response_info.m_body); \
+	  tools::get_clear_json(response_info.m_body); \
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
       response_info.m_mime_tipe = "application/json"; \
       response_info.m_header_info.m_content_type = " application/json"; \
