@@ -2,15 +2,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "warnings.h"
-PUSH_WARNINGS
-DISABLE_VS_WARNINGS(4100)
-DISABLE_VS_WARNINGS(4503)
-DISABLE_VS_WARNINGS(4244)
-DISABLE_VS_WARNINGS(4101)
-
-#include <boost/foreach.hpp>
 #include "include_base_utils.h"
+#include <boost/foreach.hpp>
 using namespace epee;
 
 #include "core_rpc_server.h"
@@ -156,13 +149,13 @@ namespace currency
 	{
 		res.status = "Failed, no such height: " + std::to_string(req.start_height);
 	}
-	count = req.blocks_count > COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT ? COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT: req.blocks_count;
+	count = req.blocks_count > (uint64_t)COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT ? (uint64_t) COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT: req.blocks_count;
 
 	if(maxheight < req.start_height + count && maxheight > req.start_height)
 		count = maxheight - req.start_height;
 
 	crypto::hash hash;
-    for(int i = 0; i < count; i++)
+    for(uint64_t i = 0; i < count; i++)
     {
 		hash = m_core.get_blockchain_storage().get_block_id_by_height(req.start_height+i);
 		block_ids.push_back(hash);
@@ -173,7 +166,7 @@ namespace currency
 		res.status = "Failed to parse hex representation of transaction hash";
 		return false;
 	}
-	memcpy(hash.data,buff.c_str(),HASH_SIZE);
+	hash = *reinterpret_cast<const crypto::hash*>(buff.c_str());
 	block_ids.push_back(hash);
 	uint64_t current,start;
 	if(!m_core.find_blockchain_supplement(block_ids, bs, current, start, count))
@@ -717,7 +710,7 @@ namespace currency
       error_resp.message = "Internal error: coinbase transaction in the block has the wrong type";
       return false;
     }
-    uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
+
     bool responce_filled = fill_block_header_responce(blk, false, res.block_header);
     if (!responce_filled)
     {
@@ -743,7 +736,7 @@ namespace currency
       return false;
     }
     block blk = AUTO_VAL_INIT(blk);
-    bool r = m_core.get_blockchain_storage().get_block_by_height(req.height, blk);
+    m_core.get_blockchain_storage().get_block_by_height(req.height, blk);
     
     bool responce_filled = fill_block_header_responce(blk, false, res.block_header);
     if (!responce_filled)
