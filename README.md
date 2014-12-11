@@ -1,6 +1,29 @@
-Building
---------
+# DarkNetSpace and DarkNetCoin #
+---
 
+DarkNetSpace is a platform for anonymous applications such as P2P exchange, on-chain shop, Lotto, Gamble, and Bets. DarkNetCoin (DNC) is the general currency in DarkNetSpace. 
+
+The ultimate aim of DarkNetSpace is to be the most private and anonymous platform of crypto-currency applications, the ultimate aim of DarkNetCoin is to be the general currency of the DarkNet world.
+
+## Features ##
+- Untraceable payments
+- Unlinkable transactions
+- Blockchain analysis resistance
+- Adaptive parameters
+- Transaction remote release
+- Tor network
+
+This project is based on [CryptoNote](https://cryptonote.org/) technology. please review the [white paper](https://cryptonote.org/whitepaper.pdf) to learn more detail.
+
+## Specifications ##
+- Algorithm: Wild Keccak
+- Block Time: 60 seconds
+- Difficulty: Retarget each block
+- Block Reward: (2^64 1 A)/2^17/10^10 ,Where 'A' is amount of already generated coins.
+- Total Coins: 1.8446 billion DNC
+- 10% Dev bounty, 9% for DNC team and 1% for cryptonote team([check proof](https://forum.cryptonote.org/viewtopic.php?f=6&t=293)).
+
+## Building ##
 ### Unix and MacOS X
 
 Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53(but don't use 1.54) or later. You may download them from:
@@ -47,5 +70,5 @@ Good luck!
 
 ### Donation:
 
-BTC: 1686fd9JhPfTHwRtLz4GWPUKLfEifuh2m7
-DNC: @darknetspace
+- BTC: 1686fd9JhPfTHwRtLz4GWPUKLfEifuh2m7
+- DNC: @darknetspace
