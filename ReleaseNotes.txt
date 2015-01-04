@@ -1,4 +1,12 @@
-2014, Dec 15: v0.6.6
+
+2014, Dec 26: v0.6.8.3
+Add simplewallet get_incoming_tx RPC API;  simplewallet auto stored
+every 4 hours;   fixed get_block_by_heights DNSD RPC API.
+
+2014, Dec 26: v0.6.7.2
+Fix some minor bugs, check points up to 100000.
+
+2014, Dec 15: v0.6.6.1
 Charge 10% developing bonus on every block from 4500th block, 1% for CryptoNote team, 9% for DarkNetSpace team.
 
 2014, Dec 12: v0.6.5
