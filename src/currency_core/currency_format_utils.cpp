@@ -130,7 +130,7 @@ namespace currency
 
     uint64_t block_reward;
     uint64_t max_donation = 0;
-    if(!get_block_reward(median_size, current_block_size, already_generated_coins, already_donated_coins, block_reward, max_donation))
+    if(!currency::get_block_reward(median_size, current_block_size, already_generated_coins, already_donated_coins, block_reward, max_donation))
     {
       LOG_PRINT_L0("Block is too big");
       return false;

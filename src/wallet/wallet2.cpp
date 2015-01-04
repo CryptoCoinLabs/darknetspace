@@ -713,15 +713,23 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
   });
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count)
+void wallet2::get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count, bool bRecent_first)
 {
   if (offset >= m_transfer_history.size())
     return;
 
-  auto start = m_transfer_history.rbegin() + offset;
-  auto stop = m_transfer_history.size() - offset >= count ? start + count : m_transfer_history.rend();
-
-  trs.insert(trs.end(), start, stop);
+  if(bRecent_first)
+  {
+	  auto start = m_transfer_history.rbegin() + offset;
+	  auto stop = m_transfer_history.size() - offset >= count ? start + count : m_transfer_history.rend();
+	  trs.insert(trs.end(), start, stop);
+  }
+  else
+  {
+	  auto start = m_transfer_history.begin() + offset;
+	  auto stop = m_transfer_history.size() - offset >= count ? start + count : m_transfer_history.end();
+	  trs.insert(trs.end(), start, stop);
+  }   
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::get_transfer_address(const std::string& adr_str, currency::account_public_address& addr)

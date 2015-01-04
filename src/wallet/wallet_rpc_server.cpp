@@ -18,11 +18,13 @@ namespace tools
   //-----------------------------------------------------------------------------------
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
+  //const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_allow_ip = {"rpc-allow-ip", "Specify ip list file name allowed to access rpc server, on line one ip address", ""};
 
   void wallet_rpc_server::init_options(boost::program_options::options_description& desc)
   {
     command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
+	//command_line::add_arg(desc, arg_rpc_allow_ip);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w)
@@ -33,16 +35,58 @@ namespace tools
     m_net_server.add_idle_handler([this](){
       m_wallet.refresh();
       return true;
-    }, 20000);
-
+    }, 20*1000);
+	m_net_server.add_idle_handler([this](){
+      m_wallet.store();
+      return true;
+    }, 4*60*60*1000);
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
+  }
+//------------------------------------------------------------------------------------------------------------------------------
+//not used now, it is not good to allow or deny ip address in this scope
+//should allow or deny ip address on iptables or firewall
+//------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::is_ip_allowed(uint32_t ip)
+  {
+	  if(m_ip_list_file.size() == 0 || m_ip_list.size() == 0) return true;
+
+	  std::string str = string_tools::get_ip_string_from_int32(ip);
+	  if(str == "[failed]") return false;
+	  std::map<std::string,std::string>::iterator it = m_ip_list.find(str);
+
+	  if(m_ip_list.end() != it) return true;
+	  else return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::handle_command_line(const boost::program_options::variables_map& vm)
   {
     m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
     m_port = command_line::get_arg(vm, arg_rpc_bind_port);
+	//m_ip_list_file = command_line::get_arg(vm, arg_rpc_allow_ip);
+
+	//arg_rpc_allow_ip
+	if(m_ip_list_file.size() == 0) return true;
+
+	if(m_bind_ip != "127.0.0.1")
+	{
+		if(!file_io_utils::is_file_exist(m_ip_list_file))
+		{
+			LOG_PRINT_L0("allow ip list file: " << m_ip_list_file << " is not exist, so it will be ignored.");
+		}
+		else
+		{
+			if(!file_io_utils::load_file_to_string_map(m_ip_list_file,m_ip_list))
+			{
+				m_ip_list.clear();
+				LOG_PRINT_L0("error read allow ip list file : " << m_ip_list_file << ", so it will be ignored.");
+			}
+		}
+	}
+	else
+	{
+		LOG_PRINT_L0("rpc bind ip is loop address, so allow ip list will be ignored.");
+	}
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -187,7 +231,43 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-}
 
+bool wallet_rpc_server::on_get_incoming_tx(const wallet_rpc::COMMAND_RPC_GET_INCOMING_TX::request& req, wallet_rpc::COMMAND_RPC_GET_INCOMING_TX::response& res, epee::json_rpc::error& er, connection_context& cntx)
+{
+	uint64_t count = m_wallet.get_incoming_tx_size();
+	if(req.tx_start_index > count || req.tx_start_index < 0 )
+	{
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TX_START_INDEX;
+	  er.message = "Transaction start index should be within 0 to " + std::to_string(count);
+      return false;
+    }
+	uint64_t tx_get_count = req.tx_get_count;
+	if(req.tx_get_count + req.tx_start_index > count || req.tx_get_count <= 0 )
+	{
+      tx_get_count = count - req.tx_start_index;
+    }
+
+	std::vector<tools::wallet_rpc::wallet_transfer_info> recent;
+	m_wallet.get_recent_transfers_history(recent, req.tx_start_index, tx_get_count, false);  
+
+	res.tx_total_count = count;
+
+	tools::wallet_rpc::incoming_tx_details in_tx;
+	for (auto & wti : recent)
+	{
+		if (!wti.fee) wti.fee = currency::get_tx_fee(wti.tx);
+
+		in_tx.amount = wti.amount;
+		in_tx.block_height = wti.height;
+		in_tx.payment_id = wti.payment_id;
+		in_tx.tx_hash = wti.tx_hash;
+		in_tx.unlock_time = wti.unlock_time;
+		in_tx.timestamp = wti.timestamp;
+
+		res.incoming_txs.push_back(in_tx);
+	}
+	return true;	
+}
+}
 
 

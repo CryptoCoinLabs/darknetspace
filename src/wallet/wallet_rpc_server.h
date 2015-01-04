@@ -24,7 +24,7 @@ namespace tools
 
     const static command_line::arg_descriptor<std::string> arg_rpc_bind_port;
     const static command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
-
+    const static command_line::arg_descriptor<std::string> arg_rpc_allow_ip;
 
     static void init_options(boost::program_options::options_description& desc);
     bool init(const boost::program_options::variables_map& vm);
@@ -40,6 +40,7 @@ namespace tools
         MAP_JON_RPC_WE("transfer",     on_transfer,     wallet_rpc::COMMAND_RPC_TRANSFER)
         MAP_JON_RPC_WE("store",        on_store,        wallet_rpc::COMMAND_RPC_STORE)
         MAP_JON_RPC_WE("get_payments", on_get_payments, wallet_rpc::COMMAND_RPC_GET_PAYMENTS)
+		MAP_JON_RPC_WE("get_incoming_tx", on_get_incoming_tx, wallet_rpc::COMMAND_RPC_GET_INCOMING_TX)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -49,11 +50,16 @@ namespace tools
       bool on_transfer(const wallet_rpc::COMMAND_RPC_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_TRANSFER::response& res, epee::json_rpc::error& er, connection_context& cntx);
       bool on_store(const wallet_rpc::COMMAND_RPC_STORE::request& req, wallet_rpc::COMMAND_RPC_STORE::response& res, epee::json_rpc::error& er, connection_context& cntx);
       bool on_get_payments(const wallet_rpc::COMMAND_RPC_GET_PAYMENTS::request& req, wallet_rpc::COMMAND_RPC_GET_PAYMENTS::response& res, epee::json_rpc::error& er, connection_context& cntx);
+	  bool on_get_incoming_tx(const wallet_rpc::COMMAND_RPC_GET_INCOMING_TX::request& req, wallet_rpc::COMMAND_RPC_GET_INCOMING_TX::response& res, epee::json_rpc::error& er, connection_context& cntx);
 
       bool handle_command_line(const boost::program_options::variables_map& vm);
+	  bool is_ip_allowed(const uint32_t ip);
 
       wallet2& m_wallet;
       std::string m_port;
       std::string m_bind_ip;
+
+	  std::string m_ip_list_file;
+	  std::map <std::string,std::string> m_ip_list;
   };
 }

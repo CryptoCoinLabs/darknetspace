@@ -60,7 +60,10 @@ inline bool static  error(const char *str)
     return false;
 }
 
+#ifdef WIN32
 #define MSG_NOSIGNAL        0
+#endif
+
 inline bool static Socks5(std::string strDest, int port, int hSocket)
 {
 	LOG_PRINT_L2("SOCKS5 connecting "<<strDest.c_str() <<":"<<port<<"[id="<<hSocket<<"]");

@@ -148,6 +148,7 @@ namespace currency
 	if(maxheight < req.start_height) 
 	{
 		res.status = "Failed, no such height: " + std::to_string(req.start_height);
+		return false;
 	}
 	count = req.blocks_count > (uint64_t)COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT ? (uint64_t) COMMAND_RPC_GET_BLOCKS_BY_HEIGHTS_MAX_COUNT: req.blocks_count;
 
@@ -163,7 +164,7 @@ namespace currency
 	std::string buff;
 	if(!string_tools::parse_hexstr_to_binbuff(req.genesis_hash, buff))
 	{
-		res.status = "Failed to parse hex representation of transaction hash";
+		res.status = "Failed to parse hex representation of genesis transaction hash";
 		return false;
 	}
 	hash = *reinterpret_cast<const crypto::hash*>(buff.c_str());
@@ -736,7 +737,13 @@ namespace currency
       return false;
     }
     block blk = AUTO_VAL_INIT(blk);
-    m_core.get_blockchain_storage().get_block_by_height(req.height, blk);
+    bool have_block = m_core.get_blockchain_storage().get_block_by_height(req.height, blk);
+	if (!have_block)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: can't get block by height. Height = " + req.height + '.';
+      return false;
+    }
     
     bool responce_filled = fill_block_header_responce(blk, false, res.block_header);
     if (!responce_filled)
@@ -765,7 +772,7 @@ namespace currency
     }
     if(!m_core.get_blockchain_storage().get_alias_info(req.alias, aib))
     {
-      res.status = "Alias not found.";
+      res.status = "Alias not found";
       return true;
     }
     res.alias_details.address = currency::get_account_address_as_str(aib.m_address);
@@ -875,7 +882,7 @@ namespace currency
     bt_req.dev_bounties_vote = epee::serialization::storage_entry(true); //set vote 
     bt_req.reserve_size = 0; //if you want to put some data into extra
     // !!!!!!!! SET YOUR WALLET ADDRESS HERE  !!!!!!!!
-    bt_req.wallet_address = "1HNJjUsofq5LYLoXem119dd491yFAb5g4bCHkecV4sPqigmuxw57Ci9am71fEN4CRmA9jgnvo5PDNfaq8QnprWmS5uLqnbq";
+    bt_req.wallet_address = "D655ofATSSQLKE8J7Bvv9uYtjQfJucaWo8DHTxmySAV3cbG4AkuyijGX1HRFbFJK5BgektZiU4kQ9Hsri5J4pycuCZA67XN";
     
     if(!on_getblocktemplate(bt_req, bt_res, err, cntx))
       return false;

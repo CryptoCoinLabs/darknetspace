@@ -352,7 +352,36 @@ namespace file_io_utils
 			return false;
 		}
 	}
+	inline
+		bool load_file_to_string_map(const std::string& path_to_file, std::map<std::string,std::string>& target_str)
+	{
+		try
+		{
+			std::ifstream fstream;
+			fstream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+			fstream.open(path_to_file, std::ios_base::binary | std::ios_base::in | std::ios::ate);
 
+			std::ifstream::pos_type file_size = fstream.tellg();
+			
+			if(file_size > 1000000000) return false;//don't go crazy
+
+			char line[2048];
+			fstream.seekg (0, std::ios::beg);
+			while(!fstream.eof())
+			{
+				fstream.getline(line, 2048);
+				std::string::size_type loc;
+				if('\r' == line[strlen(line)-1]) line[strlen(line)-1] = '\0';
+				target_str.insert(std::make_pair(line,line));
+			}
+			fstream.close();
+			return true;
+		}
+		catch(...)
+		{
+			return false;
+		}
+	}
 	inline
 		bool append_string_to_file(const std::string& path_to_file, const std::string& str)
 	{

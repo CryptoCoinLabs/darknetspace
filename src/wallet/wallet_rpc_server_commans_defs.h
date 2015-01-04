@@ -190,6 +190,50 @@ namespace wallet_rpc
     };
   };
 
+  struct incoming_tx_details: public payment_details
+  {
+	  std::string tx_hash;
+	  uint64_t amount;
+	  uint64_t block_height;
+	  uint64_t unlock_time;
+	  uint64_t timestamp;
+	  std::string payment_id;
+
+	  BEGIN_KV_SERIALIZE_MAP()
+		  KV_SERIALIZE(timestamp)
+		  KV_SERIALIZE(payment_id)
+		  KV_SERIALIZE(tx_hash)
+		  KV_SERIALIZE(amount)
+		  KV_SERIALIZE(block_height)
+		  KV_SERIALIZE(unlock_time)
+	  END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_INCOMING_TX
+  {
+    struct request
+    {
+	  uint64_t tx_start_index;
+	  uint64_t tx_get_count;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_start_index)
+		KV_SERIALIZE(tx_get_count)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<incoming_tx_details> incoming_txs;
+	  uint64_t tx_total_count;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(incoming_txs)
+		KV_SERIALIZE(tx_total_count)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
 

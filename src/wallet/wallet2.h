@@ -115,7 +115,7 @@ namespace tools
     std::string get_wallet_path(){ return m_keys_file; }
     currency::account_base& get_account(){return m_account;}
 
-    void get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count);
+    void get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count, bool bRecent_first = true);
     void get_unconfirmed_transfers(std::vector<wallet_rpc::wallet_transfer_info>& trs);
     void init(const std::string& daemon_address = "http://localhost:8080");
     bool deinit();
@@ -144,6 +144,7 @@ namespace tools
     void get_payments(const crypto::hash& payment_id, std::list<payment_details>& payments) const;
     bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
+	uint64_t get_incoming_tx_size()const { return m_transfer_history.size(); }
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
