@@ -110,11 +110,15 @@ namespace currency
     struct response
     {
 	  std::list<block_complete_entry> blocks;
+	  std::list<std::string> miner_tx_hashs;
+	  std::list<uint64_t> sizes;
       uint64_t  blocks_count;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
 		KV_SERIALIZE(blocks)
+		KV_SERIALIZE(miner_tx_hashs)
+		KV_SERIALIZE(sizes)
         KV_SERIALIZE(blocks_count)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
@@ -146,7 +150,33 @@ namespace currency
     };
   };
 
-  typedef  COMMAND_RPC_GET_TRANSACTIONS COMMAND_RPC_GET_TRANSACTIONS_JSON;
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_TRANSACTIONS_JSON
+  {
+	  struct request
+	  {
+		  std::list<std::string> txs_hashes;
+
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(txs_hashes)
+		  END_KV_SERIALIZE_MAP()
+	  };
+
+	  struct response
+	  {
+		  std::list<std::string> txs_as_hex;  //transactions blobs as hex
+		  std::list<uint64_t> sizes; // the size of every tx.
+		  std::list<std::string> missed_tx;   //not found transactions
+		  std::string status;
+
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(txs_as_hex)
+			  KV_SERIALIZE(missed_tx)
+			  KV_SERIALIZE(sizes)
+			  KV_SERIALIZE(status)
+		  END_KV_SERIALIZE_MAP()
+	  };
+  };
   //-----------------------------------------------
   struct COMMAND_RPC_GET_TX_POOL
   {
@@ -179,14 +209,18 @@ namespace currency
     struct response
     {
 	  std::list<std::string> txs;  //transactions blobs as hex
+	  std::list<uint64_t> sizes; // the size of every tx.
+	  std::list<std::string> hashs; // the size of every tx.
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
+		KV_SERIALIZE(sizes)
         KV_SERIALIZE(status)
+		KV_SERIALIZE(hashs)
       END_KV_SERIALIZE_MAP()
     };
-  };
+ };
   //-----------------------------------------------
   struct COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES
   {

@@ -180,10 +180,24 @@ namespace currency
 	{
 		res.blocks.resize(res.blocks.size()+1);
 		res.blocks.back().block = obj_to_json_str(b.first);
+
+		//miner_tx hash
+		crypto::hash hash = currency::get_blob_hash(t_serializable_object_to_blob(b.first.miner_tx));
+		res.miner_tx_hashs.push_back(string_tools::pod_to_hex(hash));
+
+		//block header size
+		blobdata blob = t_serializable_object_to_blob(b.first);
+		uint64_t size = blob.size();
+
 		BOOST_FOREACH(auto& t, b.second)
 		{
 			res.blocks.back().txs.push_back(obj_to_json_str(t));
+
+			//block heaher size + every tx size
+			blob = t_serializable_object_to_blob(t);
+			size += blob.size();
 		}
+		res.sizes.push_back(size);
 	}
 
 	res.blocks_count = count;
@@ -278,15 +292,22 @@ namespace currency
     for(auto& tx: txs)
     {
 		std::string str = currency::obj_to_json_str(tx);
-
 		res.txs.push_back(str);
+	
+		//tx size
+		blobdata blob = t_serializable_object_to_blob(tx);
+		res.sizes.push_back(blob.size());
+
+		//tx hash
+		crypto::hash hash = currency::get_blob_hash(blob);
+		res.hashs.push_back(string_tools::pod_to_hex(hash));
     }
     res.status = CORE_RPC_STATUS_OK;
 	LOG_PRINT_L2("COMMAND_RPC_GET_TX_POOL: [" << res.txs.size() << "]");
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_transactions_json(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res, connection_context& cntx)
+  bool core_rpc_server::on_get_transactions_json(const COMMAND_RPC_GET_TRANSACTIONS_JSON::request& req, COMMAND_RPC_GET_TRANSACTIONS_JSON::response& res, connection_context& cntx)
   {
     CHECK_CORE_READY();
     std::vector<crypto::hash> vh;
@@ -315,8 +336,11 @@ namespace currency
 
     BOOST_FOREACH(auto& tx, txs)
     {
-      blobdata blob = currency::obj_to_json_str(tx);
-      res.txs_as_hex.push_back(blob);
+      blobdata json_str = currency::obj_to_json_str(tx);
+	  blobdata blob = t_serializable_object_to_blob(tx);
+
+	  res.txs_as_hex.push_back(json_str);
+	  res.sizes.push_back(blob.size());
     }
 
     BOOST_FOREACH(const auto& miss_tx, missed_txs)

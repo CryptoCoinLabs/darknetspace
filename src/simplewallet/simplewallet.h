@@ -13,7 +13,27 @@
 #include "wallet/wallet2.h"
 #include "console_handler.h"
 #include "password_container.h"
+#include "serialization/keyvalue_serialization.h"
 
+#define SIMPLE_CONFIG_FILE "simplewallet.json"
+struct simple_config
+{
+	std::string wallets_path_name;
+	std::string password;
+	uint32_t rpc_bind_port;
+	std::string rpc_bind_ip;
+	uint8_t log_level;	
+	bool  is_run_as_rpc;
+	
+	BEGIN_KV_SERIALIZE_MAP()
+		KV_SERIALIZE(wallets_path_name)
+		KV_SERIALIZE(password)
+		KV_SERIALIZE(rpc_bind_port)
+		KV_SERIALIZE(rpc_bind_ip)
+		KV_SERIALIZE(log_level)
+		KV_SERIALIZE(is_run_as_rpc)
+	END_KV_SERIALIZE_MAP()
+};
 
 namespace currency
 {
@@ -24,7 +44,7 @@ namespace currency
   {
   public:
     typedef std::vector<std::string> command_type;
-
+	bool init_config();
     simple_wallet();
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
@@ -129,6 +149,8 @@ namespace currency
     std::string m_daemon_address;
     std::string m_daemon_host;
     int m_daemon_port;
+
+	simple_config m_config;
 
     epee::console_handlers_binder m_cmd_binder;
 

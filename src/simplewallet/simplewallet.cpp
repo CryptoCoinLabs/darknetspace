@@ -151,6 +151,16 @@ namespace
   }
 }
 
+bool simple_wallet::init_config()
+{
+	epee::serialization::load_t_from_json_file(m_config, string_tools::get_current_module_folder() + "/" + SIMPLE_CONFIG_FILE);
+	if (!m_config.wallets_path_name.size())
+	{
+		m_config.wallets_path_name = tools::get_default_user_dir();
+		tools::create_directories_if_necessary(m_config.wallets_path_name);
+	}
+	return true;
+}
 std::string simple_wallet::get_commands_str()
 {
   std::stringstream ss;
@@ -215,7 +225,7 @@ bool simple_wallet::ask_wallet_create_if_needed()
   std::string wallet_path;
 
   wallet_path = command_line::input_line(
-      "Specify wallet file name (e.g., wallet.bin). If the wallet doesn't exist, it will be created.\n"
+      "Specify wallet file name (e.g., wallet.dnc). If the wallet doesn't exist, it will be created.\n"
       "Wallet file name: "
   );
 
