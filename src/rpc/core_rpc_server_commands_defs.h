@@ -220,8 +220,8 @@ namespace currency
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
 		KV_SERIALIZE(sizes)
-        KV_SERIALIZE(status)
 		KV_SERIALIZE(hashs)
+        KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
  };
