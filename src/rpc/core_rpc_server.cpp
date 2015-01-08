@@ -182,22 +182,29 @@ namespace currency
 		res.blocks.back().block = obj_to_json_str(b.first);
 
 		//miner_tx hash
-		crypto::hash hash = currency::get_blob_hash(t_serializable_object_to_blob(b.first.miner_tx));
+		blobdata blob = t_serializable_object_to_blob(b.first.miner_tx);
+		res.miner_tx_sizes.push_back(blob.size());
+		
+		//miner_tx size
+		crypto::hash hash = currency::get_blob_hash(blob);
 		res.miner_tx_hashs.push_back(string_tools::pod_to_hex(hash));
 
-		//block header size
-		blobdata blob = t_serializable_object_to_blob(b.first);
+		//block head size
+		blob = t_serializable_object_to_blob(b.first);
 		uint64_t size = blob.size();
 
 		BOOST_FOREACH(auto& t, b.second)
 		{
 			res.blocks.back().txs.push_back(obj_to_json_str(t));
 
-			//block heaher size + every tx size
+			//block head size + every tx size
 			blob = t_serializable_object_to_blob(t);
 			size += blob.size();
+
+			//tx_size
+			res.tx_sizes.push_back(blob.size());
 		}
-		res.sizes.push_back(size);
+		res.block_sizes.push_back(size);
 	}
 
 	res.blocks_count = count;

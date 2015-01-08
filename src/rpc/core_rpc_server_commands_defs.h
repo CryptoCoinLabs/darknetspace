@@ -111,15 +111,19 @@ namespace currency
     {
 	  std::list<block_complete_entry> blocks;
 	  std::list<std::string> miner_tx_hashs;
-	  std::list<uint64_t> sizes;
+	  std::list<uint64_t> block_sizes;
+	  std::list<uint64_t> miner_tx_sizes;
+	  std::list<uint64_t> tx_sizes;
       uint64_t  blocks_count;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
 		KV_SERIALIZE(blocks)
 		KV_SERIALIZE(miner_tx_hashs)
-		KV_SERIALIZE(sizes)
-        KV_SERIALIZE(blocks_count)
+		KV_SERIALIZE(block_sizes)
+		KV_SERIALIZE(miner_tx_sizes)
+		KV_SERIALIZE(block_sizes)
+		KV_SERIALIZE(tx_sizes)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
@@ -171,8 +175,8 @@ namespace currency
 
 		  BEGIN_KV_SERIALIZE_MAP()
 			  KV_SERIALIZE(txs_as_hex)
-			  KV_SERIALIZE(missed_tx)
 			  KV_SERIALIZE(sizes)
+			  KV_SERIALIZE(missed_tx)			  
 			  KV_SERIALIZE(status)
 		  END_KV_SERIALIZE_MAP()
 	  };
