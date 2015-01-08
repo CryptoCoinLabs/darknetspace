@@ -15,7 +15,7 @@
 #include "password_container.h"
 #include "serialization/keyvalue_serialization.h"
 
-#define SIMPLE_CONFIG_FILE "simplewallet.json"
+#define SIMPLE_WALLET_CONFIG_FILE "simplewallet.json"
 struct simple_config
 {
 	std::string wallets_path_name;
@@ -44,7 +44,7 @@ namespace currency
   {
   public:
     typedef std::vector<std::string> command_type;
-	bool init_config();
+	bool init_config(std::string config_file);
     simple_wallet();
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
@@ -151,6 +151,7 @@ namespace currency
     int m_daemon_port;
 
 	simple_config m_config;
+	std::string m_str_config_file;
 
     epee::console_handlers_binder m_cmd_binder;
 

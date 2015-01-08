@@ -47,6 +47,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of default", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
+  const command_line::arg_descriptor<std::string> arg_config_file = { "config", "config file", ""};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -151,14 +152,20 @@ namespace
   }
 }
 
-bool simple_wallet::init_config()
+bool simple_wallet::init_config(std::string config_file)
 {
-	epee::serialization::load_t_from_json_file(m_config, string_tools::get_current_module_folder() + "/" + SIMPLE_CONFIG_FILE);
-	if (!m_config.wallets_path_name.size())
+	epee::serialization::load_t_from_json_file(m_config, config_file);
+	if (!m_config.wallets_path_name.size())//wallet file error
 	{
-		m_config.wallets_path_name = tools::get_default_user_dir();
-		tools::create_directories_if_necessary(m_config.wallets_path_name);
+		fail_msg_writer() << "error wallet file from json file: " << SIMPLE_WALLET_CONFIG_FILE;
+		return false;
 	}
+	else//correct
+	{
+
+	}
+
+
 	return true;
 }
 std::string simple_wallet::get_commands_str()
@@ -269,6 +276,27 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   handle_command_line(vm);
 
+  tools::password_container pwd_container;
+  if (m_str_config_file.size())
+  {
+	  if (!init_config(m_str_config_file)) return false;
+
+	  m_wallet_file = m_config.wallets_path_name;
+	  pwd_container.password(m_config.password);
+
+	  if (!m_generate_new.empty())
+	  {
+		  bool r = new_wallet(m_generate_new, pwd_container.password());
+		  CHECK_AND_ASSERT_MES(r, false, "account creation failed");
+	  }
+	  else
+	  {
+		  bool r = open_wallet(m_wallet_file, pwd_container.password());
+		  CHECK_AND_ASSERT_MES(r, false, "could not open account");
+	  }
+	  return true;
+  }
+
   if (!m_daemon_address.empty() && !m_daemon_host.empty() && 0 != m_daemon_port)
   {
     fail_msg_writer() << "you can't specify daemon host or port several times";
@@ -292,8 +320,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (m_daemon_address.empty())
     m_daemon_address = std::string("http://") + m_daemon_host + ":" + std::to_string(m_daemon_port);
 
-  tools::password_container pwd_container;
-  if (command_line::has_arg(vm, arg_password))
+   if (command_line::has_arg(vm, arg_password))
   {
     pwd_container.password(command_line::get_arg(vm, arg_password));
   }
@@ -336,6 +363,7 @@ void simple_wallet::handle_command_line(const boost::program_options::variables_
   m_daemon_address = command_line::get_arg(vm, arg_daemon_address);
   m_daemon_host    = command_line::get_arg(vm, arg_daemon_host);
   m_daemon_port    = command_line::get_arg(vm, arg_daemon_port);
+  m_str_config_file = command_line::get_arg(vm, arg_config_file);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::try_connect_to_daemon()
