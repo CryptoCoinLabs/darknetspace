@@ -186,7 +186,7 @@ namespace currency
 		res.miner_tx_sizes.push_back(blob.size());
 		
 		//miner_tx size
-		crypto::hash hash = currency::get_blob_hash(blob);
+		crypto::hash hash = currency::get_transaction_hash(b.first.miner_tx);
 		res.miner_tx_hashs.push_back(string_tools::pod_to_hex(hash));
 
 		//block head size
@@ -306,7 +306,7 @@ namespace currency
 		res.sizes.push_back(blob.size());
 
 		//tx hash
-		crypto::hash hash = currency::get_blob_hash(blob);
+		crypto::hash hash = currency::get_transaction_hash(tx);
 		res.hashs.push_back(string_tools::pod_to_hex(hash));
     }
     res.status = CORE_RPC_STATUS_OK;
