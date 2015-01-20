@@ -18,6 +18,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
 #include "currency_core/alias_helper.h"
+#include "common/util.h"
 using namespace currency;
 
 namespace
@@ -37,6 +38,7 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
 }
 } //namespace
 
+
 namespace tools
 {
 //----------------------------------------------------------------------------------------------------
@@ -55,15 +57,53 @@ void fill_transfer_details(const currency::transaction& tx, const tools::money_t
     res_td.rcv.push_back(tx.vout[ri].amount);
   }
 }
-
-
+wallet2 * wallet2::m_pThis = NULL;
 void wallet2::init(const std::string& daemon_address)
 {
   m_upper_transaction_size_limit = 0;
+  m_pThis = this;
+
+  net_utils::http::url_content u;
+  net_utils::parse_url(daemon_address, u);
+  if (u.port <= 0 || u.port > 65535 || u.host.size() == 0)
+	  return;
+
   m_daemon_address = daemon_address;
 }
+
+void wallet2::process_new_block(currency::NOTIFY_NEW_BLOCK::request & req) 
+{
+	if (m_pThis == NULL)
+	{
+		LOG_ERROR("Wallet process_new_block: init wallet2 first");
+		return;
+	}
+		currency::block bl;
+		bool r = currency::parse_and_validate_block_from_blob(req.b.block, bl);
+		CHECK_AND_THROW_WALLET_EX(!r, error::block_parse_error, req.b.block);
+
+		crypto::hash bl_id = get_block_hash(bl);
+		if (req.current_blockchain_height >= m_pThis->m_blockchain.size())
+		{
+			m_pThis->process_new_blockchain_entry(bl, req.b, bl_id, req.current_blockchain_height);
+		}
+		else if (bl_id != m_pThis->m_blockchain[req.current_blockchain_height])
+		{
+			//split detected here !!!
+			LOG_ERROR("Wallet NOTIFY_NEW_BLOCK: wrong  request - split starts from the block  " << string_tools::pod_to_hex(bl_id)  << 
+				"  at height: " << std::to_string(req.current_blockchain_height));
+
+			m_pThis->detach_blockchain(req.current_blockchain_height);
+			m_pThis->process_new_blockchain_entry(bl, req.b, bl_id, req.current_blockchain_height);
+		}
+		else 
+		{
+		//	LOG_PRINT_L0("Wallet NOTIFY_NEW_BLOCK: Block " << get_blockchain_current_height() << " is already in blockchain: " << string_tools::pod_to_hex(bl_id));
+		}	
+}
+
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const currency::transaction& tx, uint64_t height, const currency::block& b)
+double wallet2::process_new_transaction(const currency::transaction& tx, uint64_t height, const currency::block& b)
 {
   std::string recipient, recipient_alias;
   process_unconfirmed(tx, recipient, recipient_alias);
@@ -113,7 +153,7 @@ void wallet2::process_new_transaction(const currency::transaction& tx, uint64_t 
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
 
       m_key_images[td.m_key_image] = m_transfers.size()-1;
-      LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
+      LOG_PRINT_L3("Received money: " << print_money(td.amount()) << ", with tx: " << get_transaction_hash(tx));
       if (0 != m_callback)
         m_callback->on_money_received(height, td.m_tx, td.m_internal_output_index);
     }
@@ -129,7 +169,7 @@ void wallet2::process_new_transaction(const currency::transaction& tx, uint64_t 
     auto it = m_key_images.find(boost::get<currency::txin_to_key>(in).k_image);
     if(it != m_key_images.end())
     {
-      LOG_PRINT_L0("Spent money: " << print_money(boost::get<currency::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx));
+      LOG_PRINT_L3("Spent money: " << print_money(boost::get<currency::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx));
       tx_money_spent_in_ins += boost::get<currency::txin_to_key>(in).amount;
       transfer_details& td = m_transfers[it->second];
       td.m_spent = true;
@@ -176,6 +216,9 @@ void wallet2::process_new_transaction(const currency::transaction& tx, uint64_t 
       if(tx_money_got_in_outs)
         handle_money_received2(b, tx, tx_money_got_in_outs, mtd);
     }
+
+	double db_tx_money = (double)(tx_money_got_in_outs/COIN-tx_money_spent_in_ins/COIN);
+	return db_tx_money;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::prepare_wti(wallet_rpc::wallet_transfer_info& wti, uint64_t height, uint64_t timestamp, const currency::transaction& tx, uint64_t amount, const money_transfer2_details& td)
@@ -232,14 +275,15 @@ void wallet2::process_unconfirmed(const currency::transaction& tx, std::string& 
 void wallet2::process_new_blockchain_entry(const currency::block& b, currency::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
 {
   //handle transactions from new block
-  CHECK_AND_THROW_WALLET_EX(height != m_blockchain.size(), error::wallet_internal_error,
+	CHECK_AND_THROW_WALLET_EX(height != m_blockchain.size(), error::wallet_internal_error,
     "current_index=" + std::to_string(height) + ", m_blockchain.size()=" + std::to_string(m_blockchain.size()));
+  double block_money = 0;
 
   //optimization: seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
   if(b.timestamp + 60*60*24 > m_account.get_createtime())
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(b.miner_tx, height, b);
+    block_money = process_new_transaction(b.miner_tx, height, b);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
@@ -248,10 +292,10 @@ void wallet2::process_new_blockchain_entry(const currency::block& b, currency::b
       currency::transaction tx;
       bool r = parse_and_validate_tx_from_blob(txblob, tx);
       CHECK_AND_THROW_WALLET_EX(!r, error::tx_parse_error, txblob);
-      process_new_transaction(tx, height, b);
+      block_money += process_new_transaction(tx, height, b);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
-    LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
+    LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", money " << (block_money>=0?"+":"-") << block_money <<  " (" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
   }else
   {
     LOG_PRINT_L2( "Skipped block by timestamp, height: " << height << ", block time " << b.timestamp << ", account time " << m_account.get_createtime());
@@ -296,6 +340,7 @@ void wallet2::pull_blocks(size_t& blocks_added)
   currency::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   get_short_chain_history(req.block_ids);
+  
   bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
   CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "getblocks.bin");
   CHECK_AND_THROW_WALLET_EX(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
@@ -330,7 +375,7 @@ void wallet2::pull_blocks(size_t& blocks_added)
     }
     else
     {
-      LOG_PRINT_L2("Block is already in blockchain: " << string_tools::pod_to_hex(bl_id));
+      LOG_PRINT_L3("Block " <<  get_blockchain_current_height() << " is already in blockchain: " << string_tools::pod_to_hex(bl_id));
     }
 
     ++current_index;
@@ -357,7 +402,7 @@ void wallet2::update_current_tx_limit()
   CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "getinfo");
   CHECK_AND_THROW_WALLET_EX(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getinfo");
   CHECK_AND_THROW_WALLET_EX(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
-  CHECK_AND_THROW_WALLET_EX(res.current_blocks_median < CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE, error::get_blocks_error, "bad median size");
+  CHECK_AND_THROW_WALLET_EX(res.current_blocks_median < currency::get_block_granted_full_reward_zone(get_blockchain_current_height()), error::get_blocks_error, "bad median size");
   m_upper_transaction_size_limit = res.current_blocks_median - CURRENCY_COINBASE_BLOB_RESERVED_SIZE;
 }
 //----------------------------------------------------------------------------------------------------
@@ -518,6 +563,7 @@ bool wallet2::clear()
   currency::generate_genesis_block(b);
   m_blockchain.push_back(get_block_hash(b));
   m_local_bc_height = 1;
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -554,14 +600,17 @@ namespace
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
+bool wallet2::load_keys(const std::string& keys_file_name, const std::string& password, currency::account_base &account)
 {
   wallet2::keys_file_data keys_file_data;
   std::string buf;
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
   CHECK_AND_THROW_WALLET_EX(!r, error::file_read_error, keys_file_name);
+  if (!r) return false; 
+
   r = ::serialization::parse_binary(buf, keys_file_data);
   CHECK_AND_THROW_WALLET_EX(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
+  if (!r) return false;  
 
   crypto::chacha8_key key;
   crypto::generate_chacha8_key(password, key);
@@ -569,11 +618,13 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   account_data.resize(keys_file_data.account_data.size());
   crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
 
-  const currency::account_keys& keys = m_account.get_keys();
-  r = epee::serialization::load_t_from_binary(m_account, account_data);
+  const currency::account_keys& keys = account.get_keys();
+  r = epee::serialization::load_t_from_binary(account, account_data);
   r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
   r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
+
   CHECK_AND_THROW_WALLET_EX(!r, error::invalid_password);
+  if(!r) return false; else return true;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate(const std::string& wallet_, const std::string& password)
@@ -595,6 +646,49 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   if(!r) LOG_PRINT_RED_L0("String with address text not saved");
 
   store();
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::changepassword(const std::string& old_password, const std::string& new_password)
+{
+	boost::system::error_code e;
+	bool exists = boost::filesystem::exists(m_wallet_file, e);
+	CHECK_AND_THROW_WALLET_EX(e || !exists, error::file_not_found, m_wallet_file);
+
+	exists = boost::filesystem::exists(m_keys_file, e);
+	CHECK_AND_THROW_WALLET_EX(e || !exists, error::file_not_found, m_keys_file);
+
+	currency::account_base account;
+	if (false == load_keys(m_keys_file, old_password, account))//old password is wrong.
+	{
+		return false;
+	}
+
+	const std::string filename = m_keys_file + ".bak";
+	exists = boost::filesystem::exists(filename, e);
+	if(exists) boost::filesystem::detail::remove(filename);
+
+	std::error_code ec = tools::replace_file(m_keys_file, filename);
+	if (ec)
+	{
+		LOG_ERROR("Failed to rename keys file " << m_keys_file << " to " << filename << ": " << ec.message() << ':' << ec.value());
+		return false;
+	}
+
+	if(false == store_keys(m_keys_file,new_password))
+	{
+		LOG_ERROR("Failed to store keys file " << m_keys_file << " using new password. change password failed. ");
+		tools::replace_file(filename, m_keys_file);
+		return false;
+	}
+
+	if (false == load_keys(m_keys_file, new_password, account))//something is wrong.
+	{
+		LOG_ERROR("Failed to load keys file " << m_keys_file << " using new password. change password failed. ");
+		tools::replace_file(filename, m_keys_file);
+		return false;
+	}
+	boost::filesystem::detail::remove(filename);//remove keys back file;
+	return true;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
@@ -643,7 +737,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
   bool exists = boost::filesystem::exists(m_keys_file, e);
   CHECK_AND_THROW_WALLET_EX(e || !exists, error::file_not_found, m_keys_file);
 
-  load_keys(m_keys_file, password);
+  load_keys(m_keys_file, password,m_account);
   LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str());
 
   //keys loaded ok!
@@ -674,6 +768,7 @@ void wallet2::store()
 {
   bool r = tools::serialize_obj_to_file(*this, m_wallet_file);
   CHECK_AND_THROW_WALLET_EX(!r, error::file_save_error, m_wallet_file);
+  LOG_PRINT_L0("wallet: " << m_wallet_file << " stored. ");
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::unlocked_balance()
@@ -927,7 +1022,7 @@ std::string wallet2::get_alias_for_address(const std::string& addr)
 void wallet2::transfer(const std::vector<currency::tx_destination_entry>& dsts, size_t fake_outputs_count,
                        uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, currency::transaction& tx)
 {
-  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(fee), tx);
+  transfer(dsts, fake_outputs_count, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(), tx);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::transfer(const std::vector<currency::tx_destination_entry>& dsts, size_t fake_outputs_count,

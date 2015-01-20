@@ -7,6 +7,7 @@
 #include "include_base_utils.h"
 #include "daemon_backend.h"
 #include "currency_core/alias_helper.h"
+#include <boost/algorithm/string.hpp>
 
 
 daemon_backend::daemon_backend():m_pview(&m_view_stub),
@@ -67,8 +68,6 @@ bool daemon_backend::start(int argc, char* argv[], view::i_view* pview_handler)
   command_line::add_arg(desc_cmd_sett, command_line::arg_show_details);
   command_line::add_arg(desc_cmd_sett, arg_alloc_win_console);
   command_line::add_arg(desc_cmd_sett, arg_html_folder);
-  
-
 
   currency::core::init_options(desc_cmd_sett);
   currency::core_rpc_server::init_options(desc_cmd_sett);
@@ -227,6 +226,7 @@ void daemon_backend::main_worker(const po::variables_map& vm)
   LOG_PRINT_L0("Starting core rpc server...");
   dsi.text_state = "Starting core rpc server";
   m_pview->update_daemon_status(dsi);
+     
   res = m_rpc_server.run(2, false);
   CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core rpc server.");
   LOG_PRINT_L0("Core rpc server started ok");
@@ -303,7 +303,26 @@ void daemon_backend::main_worker(const po::variables_map& vm)
   m_pview->on_backend_stopped();
 }
 
-bool daemon_backend::update_state_info()
+bool daemon_backend::enable_proxy(bool bEnabled, std::string ip_address, short port)
+{
+	std::string ip_set;
+	int port_set = 0;
+	bool bOldEnabled = m_p2psrv.get_proxy_status(ip_set, port_set);
+	if (bEnabled == bOldEnabled) return true;
+	return m_p2psrv.enable_proxy(bEnabled, true, ip_address, port);
+}
+
+bool daemon_backend::test_proxy(const std::string ip_address, const int port, std::string & err)
+{
+	uint32_t ip = 0;
+	bool bReturn = string_tools::get_ip_int32_from_string(ip, ip_address);
+	if (!bReturn) { LOG_ERROR("test_proxy: wrong ip address"); return false; }
+
+	if (port <0 || port >65535) { LOG_ERROR("test_proxy: wrong port"); return false; }
+	return Socks5(ip_address, port, err);
+}
+
+bool daemon_backend::update_state_info(uint64_t &state)
 {
   view::daemon_status_info dsi = AUTO_VAL_INIT(dsi);
   dsi.difficulty = "---";
@@ -319,6 +338,8 @@ bool daemon_backend::update_state_info()
   dsi.hashrate = inf.current_network_hashrate_350;
   dsi.inc_connections_count = inf.incoming_connections_count;
   dsi.out_connections_count = inf.outgoing_connections_count;
+
+  state = inf.daemon_network_state;
   switch(inf.daemon_network_state)
   {
   case currency::COMMAND_RPC_GET_INFO::daemon_network_state_connecting:     dsi.text_state = "Connecting";break;
@@ -326,9 +347,19 @@ bool daemon_backend::update_state_info()
   case currency::COMMAND_RPC_GET_INFO::daemon_network_state_synchronizing:  dsi.text_state = "Synchronizing";break;
   default: dsi.text_state = "unknown";break;
   }
-  dsi.daemon_network_state = inf.daemon_network_state;
+  dsi.daemon_network_state = inf.daemon_network_state; 
   dsi.synchronization_start_height = inf.synchronization_start_height;
   dsi.max_net_seen_height = inf.max_net_seen_height;
+
+  //staticitics
+  dsi.alias_count = inf.alias_count;
+  dsi.tx_count = inf.tx_count;
+  dsi.transactions_cnt_per_day = inf.transactions_cnt_per_day;
+  dsi.tx_pool_size = inf.tx_pool_size;
+  dsi.transactions_volume_per_day = inf.transactions_volume_per_day;
+  dsi.peer_count = inf.white_peerlist_size+inf.grey_peerlist_size;
+  dsi.white_peerlist_size = inf.white_peerlist_size;
+  dsi.grey_peerlist_size = inf.grey_peerlist_size;
 
   dsi.last_build_available = std::to_string(inf.mi.ver_major)
     + "." + std::to_string(inf.mi.ver_minor)
@@ -358,76 +389,88 @@ bool daemon_backend::update_state_info()
 
 bool daemon_backend::update_wallets()
 {
-  CRITICAL_REGION_LOCAL(m_wallet_lock);
-  if(m_wallet->get_wallet_path().size())
-  {//wallet is opened
-    if(m_last_daemon_height != m_last_wallet_synch_height)
-    {
-      view::wallet_status_info wsi = AUTO_VAL_INIT(wsi);
-      wsi.wallet_state = view::wallet_status_info::wallet_state_synchronizing;
-      m_pview->update_wallet_status(wsi);
-      try
-      {
-        m_wallet->refresh();
-      }
-      
-      catch (const tools::error::daemon_busy& /*e*/)
-      {
-        LOG_PRINT_L0("Daemon busy while wallet refresh");
-        return true;
-      }
+	CRITICAL_REGION_LOCAL(m_wallet_lock);
+	view::wallet_status_info wsi = AUTO_VAL_INIT(wsi);
 
-      catch (const std::exception& e)
-      {
-        LOG_PRINT_L0("Failed to refresh wallet: " << e.what());
-        return false;
-      }
+	if (m_wallet->get_wallet_path().size())
+	{
+		//wallet is opened
+		if (m_last_daemon_height != m_last_wallet_synch_height)
+		{
+			update_wallet_info();
+			static view::wallet_recent_transfers t(true);
+			m_pview->show_wallet(t);
+			
+			wsi.wallet_state = view::wallet_status_info::wallet_state_synchronizing;
+			m_pview->update_wallet_status(wsi);
+			if (t.bclear_recent_transfers){ load_recent_transfers(); t.bclear_recent_transfers = false; }
 
-      catch (...)
-      {
-        LOG_PRINT_L0("Failed to refresh wallet, unknownk exception");
-        return false;
-      }
+			try
+			{
+				m_wallet->refresh();
+			}
 
-      m_last_wallet_synch_height = m_ccore.get_current_blockchain_height();
-      wsi.wallet_state = view::wallet_status_info::wallet_state_ready;
-      m_pview->update_wallet_status(wsi);
-      update_wallet_info();
-    }
+			catch (const tools::error::daemon_busy& /*e*/)
+			{
+				LOG_PRINT_L0("Daemon busy while wallet refresh");
+				return true;
+			}
 
-    // scan for unconfirmed trasactions
-    try
-    {
-      m_wallet->scan_tx_pool();
-    }
+			catch (const std::exception& e)
+			{
+				LOG_PRINT_L0("Failed to refresh wallet: " << e.what());
+				return false;
+			}
 
-    catch (const tools::error::daemon_busy& /*e*/)
-    {
-      LOG_PRINT_L0("Daemon busy while wallet refresh");
-      return true;
-    }
+			catch (...)
+			{
+				LOG_PRINT_L0("Failed to refresh wallet, unknown exception");
+				return false;
+			}
+			m_last_wallet_synch_height = m_ccore.get_current_blockchain_height();
+			wsi.wallet_state = view::wallet_status_info::wallet_state_ready;
+			m_pview->update_wallet_status(wsi);
 
-    catch (const std::exception& e)
-    {
-      LOG_PRINT_L0("Failed to refresh wallet: " << e.what());
-      return false;
-    }
+					
+		}
 
-    catch (...)
-    {
-      LOG_PRINT_L0("Failed to refresh wallet, unknownk exception");
-      return false;
-    }
-  }
-  return true;
+		// scan for unconfirmed trasactions
+		try
+		{
+			m_wallet->scan_tx_pool();
+		}
+
+		catch (const tools::error::daemon_busy& /*e*/)
+		{
+			LOG_PRINT_L0("Daemon busy while wallet refresh");
+			return true;
+		}
+
+		catch (const std::exception& e)
+		{
+			LOG_PRINT_L0("Failed to refresh wallet: " << e.what());
+			return false;
+		}
+
+		catch (...)
+		{
+			LOG_PRINT_L0("Failed to refresh wallet, unknown exception");
+			return false;
+		}
+	}
+	return true;
 }
 
 void daemon_backend::loop()
 {
   while(!m_stop_singal_sent)
   {
-    update_state_info();
-    update_wallets();
+	 uint64_t state = 0;
+    update_state_info(state);
+	if (state == currency::COMMAND_RPC_GET_INFO::daemon_network_state_online)
+	{
+		update_wallets();
+	}
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 }
@@ -456,10 +499,36 @@ bool daemon_backend::open_wallet(const std::string& path, const std::string& pas
 
   m_wallet->init(std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port()));
   update_wallet_info();
-  m_pview->show_wallet();
+
+  view::wallet_recent_transfers t(true);
+  m_pview->show_wallet(t);
+
   load_recent_transfers();
-  m_last_wallet_synch_height = 0;  
+  m_last_wallet_synch_height = 0;
   return true;
+}
+
+//----------------------------------------------------------------------------------------------------
+bool daemon_backend::change_password(const view::change_password_params cpp)
+{
+	bool r = false;
+	if(cpp.new_password.size()==0) 
+	{
+		m_pview->show_msg_box("new password can't be empty");
+		return r;
+	}
+
+	try
+	{
+		r = m_wallet->changepassword(cpp.old_password, cpp.new_password);
+	}
+	catch (const std::exception& e)
+	{
+		m_pview->show_msg_box(std::string("Failed to change password: ") + e.what());
+		return r;
+	}
+
+	return true;
 }
 
 bool daemon_backend::load_recent_transfers()
@@ -504,7 +573,9 @@ bool daemon_backend::generate_wallet(const std::string& path, const std::string&
   m_wallet->init(std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port()));
   update_wallet_info();
   m_last_wallet_synch_height = 0;
-  m_pview->show_wallet();
+
+  view::wallet_recent_transfers t(true);
+  m_pview->show_wallet(t);
   return true;
 
 }
@@ -543,8 +614,103 @@ bool daemon_backend::get_aliases(view::alias_set& al_set)
   return false;
 }
 
+//------------------------------------------------------------------------------------------------------------------
+//return false:  alias not found
+//return true:   unkown or exists
+//------------------------------------------------------------------------------------------------------------------
+bool daemon_backend::is_alias_exist(const std::string& alias)
+{
+	currency::COMMAND_RPC_GET_ALIAS_DETAILS::response res = AUTO_VAL_INIT(res);
+	bool r = m_rpc_proxy.get_alias_info(alias,res);
+
+	if(r == true && res.status == "Alias not found")
+		return false;
+	else
+		return true;
+}
+
+bool daemon_backend::make_alias(const view::make_alias_params& alias, currency::transaction& res_tx)
+{
+	if (alias.alias.size() == 0 || alias.alias.size() > 33)
+	{
+		m_pview->show_msg_box("Alias name can't be empty or less than 32 bytes");
+		return false;
+	}
+	std::string str;
+	str.resize(alias.alias.size());
+	std::transform(alias.alias.begin(), alias.alias.end(), str.begin(), (int(*)(int))std::tolower);
+
+	if(!currency::validate_alias_name(str))
+	{
+		m_pview->show_msg_box("Wrong alias name");
+		return false;
+	}
+
+	if(is_alias_exist(str))
+	{
+		m_pview->show_msg_box("Alias already exists");
+		return false;
+	}
+	
+	currency::alias_info ai = AUTO_VAL_INIT(ai);
+	ai.m_alias = str;
+
+	if (!currency::get_account_address_from_str(ai.m_address, m_wallet->get_account().get_public_address_str()))
+	{
+		m_pview->show_msg_box("Address has wrong format");
+		return false;
+	}
+	
+	if(alias.comment.size())
+	{
+		if(alias.comment.size() > 64)
+		{
+			m_pview->show_msg_box("Comment too long, must be less 64 chars.");
+			return false;
+		}
+		ai.m_text_comment = alias.comment;	
+	}
+
+	if(alias.tracking_key.size())
+	{
+		str = alias.tracking_key;
+		if (str.size() != 64)
+		{
+			std::cout << "viewkey has wrong length, must be 64 chars  or empty." << std::endl;
+			return true;
+		}
+		std::string bin_str;
+		epee::string_tools::parse_hexstr_to_binbuff(str, bin_str);
+		ai.m_view_key = *reinterpret_cast<const crypto::secret_key*>(bin_str.c_str());
+	}
+
+  std::vector<uint8_t> extra;
+  std::string buff;
+  bool r = currency::make_tx_extra_alias_entry(buff, ai);
+  if(!r) return false;
+  extra.resize(buff.size());
+  memcpy(&extra[0], buff.data(), buff.size());
+
+  view::transfer_params tp = AUTO_VAL_INIT(tp);
+  view::transfer_destination td = AUTO_VAL_INIT(td);
+  td.address = CURRENCY_DONATIONS_ADDRESS;
+  td.amount = string_tools::num_to_string_fast(1);
+  
+  tp.destinations.push_back(td);
+  tp.fee = string_tools::num_to_string_fast(MAKE_ALIAS_MINIMUM_FEE/COIN);
+  tp.mixin_count = 0;
+  tp.lock_time = 0;
+
+  return send_tx(tp,res_tx,extra);
+}
 
 bool daemon_backend::transfer(const view::transfer_params& tp, currency::transaction& res_tx)
+{
+	std::vector<uint8_t> extra;
+	return send_tx(tp,res_tx,extra);
+}
+
+bool daemon_backend::send_tx(const view::transfer_params& tp, currency::transaction& res_tx, std::vector<uint8_t> &extra)
 {
   std::vector<currency::tx_destination_entry> dsts;
   if(!tp.destinations.size())
@@ -561,23 +727,29 @@ bool daemon_backend::transfer(const view::transfer_params& tp, currency::transac
 
   for(auto& d: tp.destinations)
   {
-    dsts.push_back(currency::tx_destination_entry());
+	uint64_t amount = 0;
+    if(!currency::parse_amount(amount, d.amount))
+    {
+      m_pview->show_msg_box("Failed to send transaction: wrong amount");
+      return false;
+    }
+
+	if(amount < DEFAULT_FEE) 
+    {
+      m_pview->show_msg_box("Failed to send transaction: amount must be greater than DEFAULT_FEE: " +  std::to_string(DEFAULT_FEE/COIN));
+      return false;
+    }
+	dsts.push_back(currency::tx_destination_entry());
+	dsts.back().amount = amount;
     if (!tools::get_transfer_address(d.address, dsts.back().addr, m_rpc_proxy))
     {
       m_pview->show_msg_box("Failed to send transaction: invalid address");
       return false;
     }
-    if(!currency::parse_amount(dsts.back().amount, d.amount))
-    {
-      m_pview->show_msg_box("Failed to send transaction: wrong amount");
-      return false;
-    }
   }
   //payment_id
-  std::vector<uint8_t> extra;
   if(tp.payment_id.size())
   {
-
     crypto::hash payment_id;
     if(!currency::parse_payment_id_from_hex_str(tp.payment_id, payment_id))
     {
@@ -622,7 +794,7 @@ bool daemon_backend::update_wallet_info()
   CRITICAL_REGION_LOCAL(m_wallet_lock);
   view::wallet_info wi = AUTO_VAL_INIT(wi);
   wi.address = m_wallet->get_account().get_public_address_str();
-  wi.tracking_hey = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+  wi.tracking_key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   wi.balance = m_wallet->balance();
   wi.unlocked_balance = m_wallet->unlocked_balance();
   wi.path = m_wallet->get_wallet_path();
@@ -630,9 +802,15 @@ bool daemon_backend::update_wallet_info()
   return true;
 }
 
-void daemon_backend::on_new_block(uint64_t /*height*/, const currency::block& /*block*/)
+void daemon_backend::on_new_block(uint64_t height, const currency::block& block)
 {
+	if (height <= m_wallet->get_blockchain_current_height()) return;
+	uint64_t count = height - m_wallet->get_blockchain_current_height();
 
+	view::wallet_left_height wi = AUTO_VAL_INIT(wi);
+	wi.left_height = count;
+
+//	m_pview->set_left_height(wi);
 }
 
 void daemon_backend::on_transfer2(const tools::wallet_rpc::wallet_transfer_info& wti)

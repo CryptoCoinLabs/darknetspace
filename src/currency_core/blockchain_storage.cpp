@@ -733,7 +733,7 @@ bool blockchain_storage::validate_miner_transaction(const block& b, size_t cumul
   std::vector<size_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CURRENCY_REWARD_BLOCKS_WINDOW);
   uint64_t max_donation = 0;
-  if(!get_block_reward(misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, already_donated_coins, base_reward, max_donation))
+  if(!get_block_reward(misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, already_donated_coins, base_reward, max_donation,h))
   {
     LOG_PRINT_L0("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
@@ -815,7 +815,7 @@ bool blockchain_storage::create_block_template(block& b, const account_public_ad
 
   size_t txs_size;
   uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_size, already_generated_coins, already_donated_coins,  txs_size, fee)) {
+  if (!m_tx_pool.fill_block_template(b, median_size, already_generated_coins, already_donated_coins,  txs_size, fee, height)) {
     return false;
   }
   /*
@@ -1791,7 +1791,8 @@ bool blockchain_storage::process_blockchain_tx_extra(const transaction& tx)
   tx_extra_info ei = AUTO_VAL_INIT(ei);
   bool r = parse_and_validate_tx_extra(tx, ei);
   CHECK_AND_ASSERT_MES(r, false, "failed to validate transaction extra");
-  if(is_coinbase(tx) && ei.m_alias.m_alias.size())
+
+  if(ei.m_alias.m_alias.size())
   {
     r = put_alias_info(ei.m_alias);
     CHECK_AND_ASSERT_MES(r, false, "failed to put_alias_info");
@@ -2312,8 +2313,8 @@ bool blockchain_storage::update_next_comulative_size_limit()
   get_last_n_blocks_sizes(sz, CURRENCY_REWARD_BLOCKS_WINDOW);
 
   uint64_t median = misc_utils::median(sz);
-  if(median <= CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE)
-    median = CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE;
+  if(median <= get_block_granted_full_reward_zone(get_current_blockchain_height()))
+    median =  get_block_granted_full_reward_zone(get_current_blockchain_height());
 
   m_current_block_cumul_sz_limit = median*2;
   return true;

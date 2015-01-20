@@ -311,7 +311,7 @@ DISABLE_VS_WARNINGS(4355)
     if(m_send_que.size() > ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
     {
       send_guard.unlock();
-      LOG_ERROR("send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
+      LOG_ERROR("send que size is "<< m_send_que.size() << " more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
       close();
       return false;
     }

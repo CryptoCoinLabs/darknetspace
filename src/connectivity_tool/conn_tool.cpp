@@ -36,7 +36,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_generate_keys      = {"generate_keys_pair", "generate private and public keys pair"};
   const command_line::arg_descriptor<bool>        arg_request_stat_info  = {"request_stat_info", "request statistics information"};
   const command_line::arg_descriptor<bool>        arg_request_net_state  = {"request_net_state", "request network state information (peer list, connections count)"};
-  const command_line::arg_descriptor<bool>        arg_get_daemon_info    = {"rpc_get_daemon_info", "request daemon state info vie rpc (--rpc_port option should be set ).", "", true};
+  const command_line::arg_descriptor<bool>        arg_get_daemon_info    = {"rpc_get_daemon_info", "request daemon state info via rpc (--rpc_port option should be set ).", "", true};
   const command_line::arg_descriptor<bool>        arg_get_aliases        = {"rpc_get_aliases", "request daemon aliases all list", "", true};
   const command_line::arg_descriptor<std::string> arg_upate_maintainers_info = {"upate_maintainers_info", "Push maintainers info into the network, upate_maintainers_info=file_with_info.json", "", true};
   const command_line::arg_descriptor<std::string> arg_update_build_no    = {"update_build_no", "Updated version number in version template file", "", true};
@@ -60,6 +60,16 @@ struct response_schema
     KV_SERIALIZE(ns_rsp)
   END_KV_SERIALIZE_MAP() 
 };
+
+uint32_t get_time_out(po::variables_map vm)
+{
+	uint32_t timeout = 1000;
+	uint32_t timeout_arg = command_line::get_arg(vm, arg_timeout);
+	if(timeout_arg == 0) 
+		return timeout;
+	else 
+		return timeout_arg;
+}
 
   std::string get_response_schema_as_json(response_schema& rs)
   {
@@ -172,7 +182,7 @@ bool handle_get_aliases(po::variables_map& vm)
   currency::COMMAND_RPC_GET_ALL_ALIASES::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_ALL_ALIASES::response res = AUTO_VAL_INIT(res);
   std::string daemon_addr = command_line::get_arg(vm, arg_ip) + ":" + std::to_string(command_line::get_arg(vm, arg_rpc_port));
-  bool r = epee::net_utils::invoke_http_json_rpc(daemon_addr + "/json_rpc", "get_all_alias_details", req, res, http_client, command_line::get_arg(vm, arg_timeout));
+  bool r = epee::net_utils::invoke_http_json_rpc(daemon_addr + "/json_rpc", "get_all_alias_details", req, res, http_client, get_time_out(vm));
   if(!r)
   {
     std::cout << "{" << ENDL << "  \"status\": \"ERROR: " << "Failed to invoke request \"" << ENDL << "}";
@@ -196,7 +206,7 @@ bool handle_get_daemon_info(po::variables_map& vm)
   currency::COMMAND_RPC_GET_INFO::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_INFO::response res = AUTO_VAL_INIT(res);
   std::string daemon_addr = command_line::get_arg(vm, arg_ip) + ":" + std::to_string(command_line::get_arg(vm, arg_rpc_port));
-  bool r = net_utils::invoke_http_json_remote_command2(daemon_addr + "/getinfo", req, res, http_client, command_line::get_arg(vm, arg_timeout));
+  bool r = net_utils::invoke_http_json_remote_command2(daemon_addr + "/getinfo", req, res, http_client, get_time_out(vm));
   if(!r)
   {
     std::cout << "ERROR: failed to invoke request" << ENDL;
@@ -240,7 +250,7 @@ bool handle_request_stat(po::variables_map& vm, peerid_type peer_id)
   response_schema rs = AUTO_VAL_INIT(rs);
 
   levin::levin_client_impl2 transport;
-  if(!transport.connect(command_line::get_arg(vm, arg_ip), static_cast<int>(command_line::get_arg(vm, arg_port)), static_cast<int>(command_line::get_arg(vm, arg_timeout))))
+  if(!transport.connect(command_line::get_arg(vm, arg_ip), static_cast<int>(command_line::get_arg(vm, arg_port)), static_cast<int>(get_time_out(vm))))
   {
     std::cout << "{" << ENDL << "  \"status\": \"ERROR: " << "Failed to connect to " << command_line::get_arg(vm, arg_ip) << ":" << command_line::get_arg(vm, arg_port) << "\"" << ENDL << "}";
     return false;
@@ -365,7 +375,7 @@ bool handle_update_maintainers_info(po::variables_map& vm)
   crypto::generate_signature(currency::get_blob_hash(req.maintainers_info_buff), tools::get_public_key_from_string(P2P_MAINTAINERS_PUB_KEY), prvk, req.sign);
 
   std::string daemon_addr = command_line::get_arg(vm, arg_ip) + ":" + std::to_string(command_line::get_arg(vm, arg_rpc_port));
-  r = net_utils::invoke_http_bin_remote_command2(daemon_addr + "/set_maintainers_info.bin", req, res, http_client, command_line::get_arg(vm, arg_timeout));
+  r = net_utils::invoke_http_bin_remote_command2(daemon_addr + "/set_maintainers_info.bin", req, res, http_client, get_time_out(vm));
   if(!r)
   {
     std::cout << "ERROR: failed to invoke request" << ENDL;

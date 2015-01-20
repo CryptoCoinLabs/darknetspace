@@ -15,7 +15,8 @@ namespace currency
                                                                                                               m_syncronized_connections_count(0),
                                                                                                               m_synchronized(false),
                                                                                                               m_max_height_seen(0),
-                                                                                                              m_core_inital_height(0)
+                                                                                                              m_core_inital_height(0),
+																											  m_wallet_callback(0)
 
   {
     if(!m_p2p)
@@ -215,6 +216,7 @@ namespace currency
       ++arg.hop;
       //TODO: Add here announce protocol usage
       relay_block(arg, context);
+	  if(m_wallet_callback) m_wallet_callback(arg);
     }else if(bvc.m_marked_as_orphaned)
     {
       context.m_state = currency_connection_context::state_synchronizing;

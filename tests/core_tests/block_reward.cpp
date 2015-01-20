@@ -54,7 +54,7 @@ namespace
     generator.get_last_n_block_sizes(block_sizes, get_block_hash(blk_prev), median_block_count);
 
     size_t median = misc_utils::median(block_sizes);
-    median = std::max(median, static_cast<size_t>(CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE));
+    median = std::max(median, static_cast<size_t>(get_block_granted_full_reward_zone(get_block_height(blk_prev) + 1)));
 
     transaction miner_tx;
     bool r = construct_miner_tx_by_size(miner_tx, get_block_height(blk_prev) + 1, generator.get_already_generated_coins(blk_prev),

@@ -34,7 +34,7 @@ namespace currency
     const command_line::arg_descriptor<std::string>   arg_extra_messages =     {"extra-messages-file", "Specify file for extra messages to include into coinbase transactions", "", true};
     const command_line::arg_descriptor<std::string>   arg_start_mining =       {"start-mining", "Specify wallet address to mining for", "", true};
     const command_line::arg_descriptor<uint32_t>      arg_mining_threads =     {"mining-threads", "Specify mining threads count", 0, true};
-    const command_line::arg_descriptor<std::string>   arg_set_donation_mode =  {"donation-vote", "Select one of two options for donations vote: \"true\"(to vote fore donation) or \"false\"(to vote against)", "", true};
+    //const command_line::arg_descriptor<std::string>   arg_set_donation_mode =  {"donation-vote", "Select one of two options for donations vote: \"true\"(to vote fore donation) or \"false\"(to vote against)", "", true};
   }
 
 
@@ -169,7 +169,7 @@ namespace currency
     command_line::add_arg(desc, arg_extra_messages);
     command_line::add_arg(desc, arg_start_mining);
     command_line::add_arg(desc, arg_mining_threads);
-    command_line::add_arg(desc, arg_set_donation_mode);    
+ //   command_line::add_arg(desc, arg_set_donation_mode);    
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::init(const boost::program_options::variables_map& vm)
@@ -177,7 +177,7 @@ namespace currency
     m_config_folder = command_line::get_arg(vm, command_line::arg_data_dir);
     epee::serialization::load_t_from_json_file(m_config, m_config_folder + "/" + MINER_CONFIG_FILENAME);
 
-    if(command_line::has_arg(vm, arg_set_donation_mode))
+ /*   if(command_line::has_arg(vm, arg_set_donation_mode))
     {
       std::string desc = command_line::get_arg(vm, arg_set_donation_mode);
       CHECK_AND_ASSERT_MES(desc == "true" || desc == "false", false, "wrong donation mode option");
@@ -187,7 +187,7 @@ namespace currency
         m_config.donation_decision = true;
       else 
         m_config.donation_decision = false;
-    }
+    }*/
 
     if(command_line::has_arg(vm, arg_extra_messages))
     {
@@ -254,19 +254,13 @@ namespace currency
   {
     if(!m_config.donation_decision_made)
     {
-      LOG_PRINT_CYAN("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", LOG_LEVEL_0);
+      LOG_PRINT_CYAN("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", LOG_LEVEL_0);
       LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL 
-        << "NOTICE: Each block in the blockchain has a vote that is taken into account "<< ENDL 
-        << "when calculating the reward amount for project team (once per day)." << ENDL 
-        << ENDL
-        << "Be sure to specify an option that expresses your attitude to work by the project developers."  << ENDL 
-        << "If you support the project, leave donations enabled. If you disagree with the actions of the team,"
-        << "vote against donations (by entering command \"set_donations false\")."  << ENDL 
-        << ENDL 
-        << "By default, if you don't disable them explicitly, donations will be enabled." << ENDL 
-        << ENDL
+        << "NOTICE: In order to maintain this project... "<< ENDL 
+		<< "From the 4550th block, 9% mined coins for the DarkNetSpace developers, 1% for CryptoNote Team. "<< ENDL 
+        << "Thank you for your understanding." << ENDL 
         << "**********************************************************************");
-      LOG_PRINT_CYAN("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", LOG_LEVEL_0);
+      LOG_PRINT_CYAN("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", LOG_LEVEL_0);
       m_config.donation_decision = true;
     }
 

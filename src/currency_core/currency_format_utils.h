@@ -93,6 +93,7 @@ namespace currency
   bool sign_update_alias(alias_info& ai, const crypto::public_key& pkey, const crypto::secret_key& skey);
   bool make_tx_extra_alias_entry(std::string& buff, const alias_info& alinfo, bool make_buff_to_sign = false);
   bool add_tx_extra_alias(transaction& tx, const alias_info& alinfo);
+  bool check_make_alias_tx(const transaction& tx,tx_extra_info &e);
   bool parse_and_validate_tx_extra(const transaction& tx, tx_extra_info& extra);
   bool parse_and_validate_tx_extra(const transaction& tx, crypto::public_key& tx_pub_key);
   crypto::public_key get_tx_pub_key_from_extra(const transaction& tx);

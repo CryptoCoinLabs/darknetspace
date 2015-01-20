@@ -37,9 +37,9 @@
 
 
 #ifndef TESTNET
-#define CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK     130000
+#define CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK     145000
 #else 
-#define CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK     2795
+#define CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK     100
 #endif
 
 #define CURRENCY_DISPLAY_DECIMAL_POINT                10
@@ -51,6 +51,7 @@
 #define DEFAULT_FEE                                     ((uint64_t)1000000000) // pow(10, 9)
 #define TX_POOL_MINIMUM_FEE                             ((uint64_t)10000000) // pow(10, 7)
 
+#define MAKE_ALIAS_MINIMUM_FEE                          ((uint64_t)100 * COIN) //100DNC
 
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100

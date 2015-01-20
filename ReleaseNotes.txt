@@ -1,5 +1,46 @@
+2015, Jan 20: v0.7.0.4
 
-2014, Dec 26: v0.6.8.3
+Changelog:
+
+1.Support socks5 proxy.
+
+2.blockchain rule update:  
+
+* Implant "Make Alias" feature, it will cost 101 DNC each alias, 100DNC will be rewarded to miners and 1DNC to DNC team.
+* Modify the rule of fee calculation, no more exceed fee issue.
+* Increase the maximal bytes of blockchain to 1M bytes from 135000th block. fixed the "Transaction too big" issue.
+* Transferred amount must be larger than or equal to DEFAULT_FEE(0.1DNC) 
+
+3.dnsd
+
+* Add "height" command to display current block height.
+* Add "alias" command to display all aliases.
+* Add 3 RPC json API, `get_transactions, get_tx_pool, get_blocks_by_heights`
+* Add command line parameter: `--enable-proxy 127.0.0.1:1080`
+* Add builtin command: `enable_proxy, disable_proxy`
+	
+4.simplewallet
+
+* Add "make_alias" command to create alias, make alias for your own address.
+* Add "change_password" command to change the password of wallet.
+* The simplewallet will auto-save the data every 4 hours.
+* Add RPC API `get_incoming_tx`.
+* Fixed the simplewallet RPC mode stop to connecting the dnsd when it failed 3 times.
+
+5.qt-dnsp
+
+* Add "Setting" interface to display and save the configuration. New settings: proxy  and load default wallet
+* Add "Alias" interface to display and create the alias.
+* Add "Change Password" interface to change the wallet password.
+* Add statistics data in the Network interface.
+
+6.connectivity_tool
+
+* Add default time out value, it will prevent daemon from unable to communicate when the timeout parameter missing in the command line.
+	
+
+
+2015, Jan 4: v0.6.8.3
 Add simplewallet get_incoming_tx RPC API;  simplewallet auto stored
 every 4 hours;   fixed get_block_by_heights DNSD RPC API.
 

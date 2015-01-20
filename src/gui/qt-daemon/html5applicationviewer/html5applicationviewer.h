@@ -46,11 +46,16 @@ private slots:
     bool do_close();
     bool on_request_quit();
 public slots:
+	bool test_proxy(const QString& proxy_ip, const int & proxy_port);
     void open_wallet();
     void generate_wallet();
     void close_wallet();
+	void update_ui_config_from_ui();
     QString get_version();
     QString transfer(const QString& json_transfer_object);
+	QString make_alias(const QString& json_transfer_object);
+	QString change_password(const QString& json_transfer_object);
+	QString store_config(const QString &json_transfer_object);
     void message_box(const QString& msg);
     QString request_uri(const QString& url_str, const QString& params, const QString& callbackname);    
     QString request_aliases();
@@ -64,6 +69,7 @@ private:
 	void changeEvent(QEvent *e);
 
     bool store_config();
+	bool enable_proxy(bool bEnabled, const std::string& proxy_ip, const int & proxy_port);
 
     //------- i_view ---------
     virtual bool update_daemon_status(const view::daemon_status_info& info);
@@ -72,11 +78,14 @@ private:
     virtual bool update_wallet_status(const view::wallet_status_info& wsi);
     virtual bool update_wallet_info(const view::wallet_info& wsi);
     virtual bool money_transfer(const view::transfer_event_info& tei);
-    virtual bool show_wallet();
+	virtual bool show_wallet(const view::wallet_recent_transfers &t);
     virtual bool hide_wallet();
     virtual bool switch_view(int view_no);
     virtual bool set_recent_transfers(const view::transfers_array& ta);
     virtual bool set_html_path(const std::string& path);
+	virtual bool update_ui_config(const gui_config & cfg);
+	virtual bool set_left_height(const view::wallet_left_height &t);
+	
     //----------------------------------------------
     bool is_uri_allowed(const QString& uri);
 

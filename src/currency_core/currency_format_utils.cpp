@@ -130,7 +130,7 @@ namespace currency
 
     uint64_t block_reward;
     uint64_t max_donation = 0;
-    if(!currency::get_block_reward(median_size, current_block_size, already_generated_coins, already_donated_coins, block_reward, max_donation))
+    if(!get_block_reward(median_size, current_block_size, already_generated_coins, already_donated_coins, block_reward, max_donation,height))
     {
       LOG_PRINT_L0("Block is too big");
       return false;
@@ -296,6 +296,49 @@ namespace currency
     return pk;
   }
   //---------------------------------------------------------------
+  //check make_alias_tx is valid or not
+  //make sure !is_coinbase(tx) && e.m_alias.m_alias.size() before called
+  //return true: tx is not make_alias_tx, or make_alias_tx is ok, should be accepted.
+  //return false: make_alias_tx is invalid, should be rejected
+  //---------------------------------------------------------------
+  bool check_make_alias_tx(const transaction& tx,tx_extra_info &e)
+  {
+	  //not make_alias_tx, we ignore
+	  if(is_coinbase(tx) || e.m_alias.m_alias.size() == 0) return true;
+
+	  //1. at least 100 DNC fee for miner
+	  CHECK_AND_ASSERT_MES(get_tx_fee(tx) >= MAKE_ALIAS_MINIMUM_FEE, false, "make_alias_tx: not enough fee to make alias: " << e.m_alias.m_alias <<", at least " << MAKE_ALIAS_MINIMUM_FEE << " DNC, tx: " << get_transaction_hash(tx));
+
+	  account_keys acc =  AUTO_VAL_INIT(acc);
+	  std::vector<size_t> outs;
+	  uint64_t money_transfered = 0;
+
+	  //2. target address is CURRENCY_DONATIONS_ADDRESS
+	  bool r = currency::get_account_address_from_str(acc.m_account_address, CURRENCY_DONATIONS_ADDRESS);
+	  CHECK_AND_ASSERT_MES(r, false, "make_alias_tx: failed to get_account_address_from_str from CURRENCY_DONATIONS_ADDRESS");
+
+	  r = string_tools::parse_tpod_from_hex_string(CURRENCY_DONATIONS_ADDRESS_TRACKING_KEY, acc.m_view_secret_key);
+	  CHECK_AND_ASSERT_MES(r, false, "make_alias_tx:failed to parse_tpod_from_hex_string from CURRENCY_DONATIONS_ADDRESS_TRACKING_KEY");
+
+	  r = (e.m_tx_pub_key != currency::null_pkey);
+	  CHECK_AND_ASSERT_MES(r, false, "make_alias_tx: transaction extra no output address found");
+
+	  for(int i = 0; i < tx.vout.size(); i++)
+	  {
+		if(tx.vout[i].target.type() !=  typeid(txout_to_key)) continue;
+		if(!is_out_to_acc(acc, boost::get<txout_to_key>(tx.vout[i].target), e.m_tx_pub_key, i)) continue;
+		if(tx.vout[i].amount < COIN) continue;
+		money_transfered = tx.vout[i].amount;
+		break;
+	  }
+
+	  //3. at least 1 DNC sent to CURRENCY_DONATIONS_ADDRESS 
+	  r = money_transfered >= COIN;
+	  CHECK_AND_ASSERT_MES(r, false, "make_alias_tx: can't find any ouput to CURRENCY_DONATIONS_ADDRESS, invalid make alias tx, alias: " << e.m_alias.m_alias <<", tx: " << get_transaction_hash(tx));
+	
+	  return r;
+  }
+   //---------------------------------------------------------------
   bool parse_and_validate_tx_extra(const transaction& tx, crypto::public_key& tx_pub_key)
   {
     tx_extra_info e = AUTO_VAL_INIT(e);
@@ -303,7 +346,7 @@ namespace currency
     tx_pub_key = e.m_tx_pub_key;
     return r;
   }
-  //---------------------------------------------------------------
+    //---------------------------------------------------------------
   bool sign_update_alias(alias_info& ai, const crypto::public_key& pkey, const crypto::secret_key& skey)
   {
     std::string buf;
@@ -387,6 +430,10 @@ namespace currency
       alinfo.m_text_comment.assign((const char*)&tx.extra[i+1], static_cast<size_t>(tx.extra[i]));
       i += tx.extra[i] + 1;
     }
+	else
+	{
+		i++;
+	}
     if(alias_flags&TX_EXTRA_TAG_ALIAS_FLAGS_OP_UPDATE)
     {
       CHECK_AND_ASSERT_MES(tx.extra.size()-i >= sizeof(crypto::secret_key), false, "Failed to parse transaction extra (TX_EXTRA_TAG_ALIAS have not enough bytes) in tx " << get_transaction_hash(tx));
@@ -431,13 +478,13 @@ namespace currency
         i += tx.extra[i];//actually don't need to extract it now, just skip
       }else if(tx.extra[i] == TX_EXTRA_TAG_ALIAS)
       {
-        CHECK_AND_ASSERT_MES(is_coinbase(tx), false, "Failed to parse transaction extra (TX_EXTRA_TAG_ALIAS can be only in coinbase) in tx " << get_transaction_hash(tx));
+        //CHECK_AND_ASSERT_MES(is_coinbase(tx), false, "Failed to parse transaction extra (TX_EXTRA_TAG_ALIAS can be only in coinbase) in tx " << get_transaction_hash(tx));
         CHECK_AND_ASSERT_MES(!tx_alias_found, false, "Failed to parse transaction extra (duplicate TX_EXTRA_TAG_ALIAS entry) in tx " << get_transaction_hash(tx));
         size_t aliac_entry_len = 0;
         if(!parse_tx_extra_alias_entry(tx, i, extra.m_alias, aliac_entry_len))
           return false;
 
-        tx_alias_found = true;
+		tx_alias_found = true;
         i += aliac_entry_len-1;
       }
       else if(!tx.extra[i])
@@ -447,6 +494,8 @@ namespace currency
       }
       ++i;
     }
+	
+	CHECK_AND_ASSERT_MES(check_make_alias_tx(tx,extra),false,"make_alias_tx error in tx " << get_transaction_hash(tx));
     return true;
   }
   //---------------------------------------------------------------
@@ -1012,7 +1061,7 @@ namespace currency
     {
       uint64_t emission_reward = 0;
       uint64_t stub = 0;
-      get_block_reward(0, 0, already_generated_coins, 0, emission_reward, stub);
+      get_block_reward(0, 0, already_generated_coins, 0, emission_reward, stub,day);
       if(!(day%183))
       {
         std::cout << std::left 
@@ -1026,7 +1075,7 @@ namespace currency
       
       for(size_t i = 0; i != 720; i++)
       {
-        get_block_reward(0, 0, already_generated_coins, 0, emission_reward, stub);
+        get_block_reward(0, 0, already_generated_coins, 0, emission_reward, stub,i);
         already_generated_coins += emission_reward;
       }
       std::vector<bool> votes(CURRENCY_DONATIONS_INTERVAL, true);

@@ -26,11 +26,11 @@ namespace currency
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool kept_by_block)
+  bool tx_memory_pool::add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool kept_by_block,std::string alias)
   {    
     size_t blob_size = get_object_blobsize(tx);
     //#9Protection from big transaction flood
-    if(!kept_by_block && blob_size > CURRENCY_MAX_TRANSACTION_BLOB_SIZE)
+	if(!kept_by_block && blob_size > currency::get_max_transaction_blob_size(m_blockchain.get_current_blockchain_height()))
     {
       LOG_PRINT_L0("transaction is too big (" << blob_size << ")bytes for current transaction flow, tx_id: " << id);
       tvc.m_verifivation_failed = true;
@@ -104,8 +104,23 @@ namespace currency
         tvc.m_verifivation_failed = true;
         return false;
       }
-    }else
+    }
+	else
     {
+		//check alias repeat or not
+		if(alias.size())
+		{
+			auto it = m_aliases_to_txid.find(alias);
+			if(it != m_aliases_to_txid.end())
+			{
+				LOG_ERROR("the same alias " << alias <<" exists in tx_pool, hash: " << id);
+				tvc.m_verifivation_failed = true;
+				tvc.m_added_to_pool = false;
+				return false;
+			}
+			m_aliases_to_txid[alias] = id;
+		}
+
       //update transactions container
       auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
       CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
@@ -142,11 +157,11 @@ namespace currency
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block)
+  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block,std::string alias)
   {
     crypto::hash h = null_hash;
     get_transaction_hash(tx, h);
-    return add_tx(tx, h, tvc, keeped_by_block);
+    return add_tx(tx, h, tvc, keeped_by_block,alias);
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::remove_transaction_keyimages(const transaction& tx)
@@ -188,7 +203,24 @@ namespace currency
     fee = it->second.fee;
     remove_transaction_keyimages(it->second.tx);
     m_transactions.erase(it);
+	remove_alias_tx_pair(id);
     return true;
+  }
+  //---------------------------------------------------------------------------------
+  bool  tx_memory_pool::remove_alias_tx_pair(crypto::hash id)
+  {
+	  bool bFound = false;
+	  for(auto it = m_aliases_to_txid.begin(); it!= m_aliases_to_txid.end();)
+	  {
+		  crypto::hash hash =  it->second;
+		  if(hash == id)
+		  {
+			  m_aliases_to_txid.erase(it);
+			  bFound = true;
+			  break;
+		  }
+	  }
+	  return bFound;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::on_idle()
@@ -208,6 +240,7 @@ namespace currency
       {
         LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
         m_transactions.erase(it++);
+		remove_alias_tx_pair(it->first);
       }else
         ++it;
     }
@@ -386,7 +419,8 @@ namespace currency
     return ss.str();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, uint64_t already_donated_coins, size_t &total_size, uint64_t &fee) {
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, uint64_t already_donated_coins, size_t &total_size, uint64_t &fee, uint64_t height) 
+  {
     typedef transactions_container::value_type txv;
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
@@ -402,7 +436,8 @@ namespace currency
     uint64_t current_fee = 0;
     uint64_t best_money;
     uint64_t max_donation = 0;
-    if (!get_block_reward(median_size, CURRENCY_COINBASE_BLOB_RESERVED_SIZE, already_generated_coins, already_donated_coins, best_money, max_donation)) {
+    if (!get_block_reward(median_size, CURRENCY_COINBASE_BLOB_RESERVED_SIZE, already_generated_coins, already_donated_coins, best_money, max_donation,height)) 
+	{
       LOG_ERROR("Block with just a miner transaction is already too large!");
       return false;
     }
@@ -412,10 +447,12 @@ namespace currency
 
     std::unordered_set<crypto::key_image> k_images;
 
-    for (size_t i = 0; i < txs.size(); i++) {
+    for (size_t i = 0; i < txs.size(); i++) 
+	{
       txv &tx(*txs[i]);
 
-      if(!is_transaction_ready_to_go(tx.second) || have_key_images(k_images, tx.second.tx)) {
+      if(!is_transaction_ready_to_go(tx.second) || have_key_images(k_images, tx.second.tx)) 
+	  {
         txs[i] = NULL;
         continue;
       }
@@ -425,11 +462,13 @@ namespace currency
       current_fee += tx.second.fee;
 
       uint64_t current_reward;
-      if (!get_block_reward(median_size, current_size + CURRENCY_COINBASE_BLOB_RESERVED_SIZE, already_generated_coins, already_donated_coins, current_reward, max_donation)) {
+      if (!get_block_reward(median_size, current_size + CURRENCY_COINBASE_BLOB_RESERVED_SIZE, already_generated_coins, already_donated_coins, current_reward, max_donation,height)) 
+	  {
         break;
       }
 
-      if (best_money < current_reward + current_fee) {
+      if (best_money < current_reward + current_fee) 
+	  {
         best_money = current_reward + current_fee;
         best_position = i + 1;
         total_size = current_size;
@@ -437,8 +476,10 @@ namespace currency
       }
     }
 
-    for (size_t i = 0; i < best_position; i++) {
-      if (txs[i]) {
+    for (size_t i = 0; i < best_position; i++) 
+	{
+      if (txs[i]) 
+	  {
         bl.tx_hashes.push_back(txs[i]->first);
       }
     }

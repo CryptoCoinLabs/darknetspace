@@ -60,7 +60,17 @@ namespace currency {
     donation = total_donations - royalty;
   }
   //-----------------------------------------------------------------------------------------------
-  bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t already_donated_coins, uint64_t &reward, uint64_t& max_donation) 
+  size_t get_block_granted_full_reward_zone(uint64_t block_height) 
+  {
+	  return (block_height < CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK) ? CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE : CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE;
+  }
+  //-----------------------------------------------------------------------------------------------
+  size_t get_max_transaction_blob_size(uint64_t block_height) 
+  {
+	  return (block_height < CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK) ? CURRENCY_MAX_TRANSACTION_BLOB_SIZE : CURRENCY_MAX_TRANSACTION_BLOB_SIZE_ENLARGE;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t already_donated_coins, uint64_t &reward, uint64_t& max_donation, uint64_t block_height) 
   {    
     uint64_t base_reward = (EMISSION_SUPPLY - already_generated_coins) >> EMISSION_CURVE_CHARACTER;
     //max_donation = (DONATIONS_SUPPLY - already_donated_coins) >> EMISSION_CURVE_CHARACTER;
@@ -68,11 +78,10 @@ namespace currency {
     base_reward = base_reward - base_reward%DEFAULT_DUST_THRESHOLD;
     //max_donation = max_donation - max_donation%DEFAULT_DUST_THRESHOLD;
 
-
     //make it soft
-    if (median_size < CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE) 
+    if (median_size < get_block_granted_full_reward_zone(block_height)) 
     {
-      median_size = CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE;
+      median_size = get_block_granted_full_reward_zone(block_height);
     }
 
     if (current_block_size <= median_size) 

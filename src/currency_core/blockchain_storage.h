@@ -280,7 +280,7 @@ namespace currency
     ar & m_blocks_index;
     ar & m_transactions;
     ar & m_spent_keys;
-
+	
     //do not keep alternative blocks
     if(version < 27)
       ar & m_alternative_chains;

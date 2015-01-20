@@ -42,19 +42,35 @@ public:
   bool send_stop_signal();
   bool open_wallet(const std::string& path, const std::string& password);
   bool generate_wallet(const std::string& path, const std::string& password);
+  bool change_password(const view::change_password_params cpp);
+  bool make_alias(const view::make_alias_params& alias, currency::transaction& res_tx);
   bool close_wallet();
   bool transfer(const view::transfer_params& tp, currency::transaction& res_tx);
+  bool send_tx(const view::transfer_params& tp, currency::transaction& res_tx, std::vector<uint8_t> &extra);
   bool get_aliases(view::alias_set& al_set);
+  bool is_alias_exist(const std::string& alias);
+  bool enable_proxy(bool bEnabled, std::string ip_address = "127.0.0.1", short port = 9050);
+  bool test_proxy(const std::string ip_address, const int port, std::string & err);
+
   std::string get_config_folder();
+
+  void set_wallet_callback(bool bStart)
+  {
+	  if (bStart) m_cprotocol.set_wallet_callback(m_wallet->process_new_block); 
+	  else m_cprotocol.set_wallet_callback(NULL);
+  }
+
 private:
   void main_worker(const po::variables_map& vm);
-  bool update_state_info();
+  bool update_state_info(uint64_t &state);
   bool update_wallets();
   void loop();
   bool update_wallet_info();
   bool load_recent_transfers();
   bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
 
+
+  
   //----- tools::i_wallet2_callback ------
   virtual void on_new_block(uint64_t height, const currency::block& block);
   virtual void on_transfer2(const tools::wallet_rpc::wallet_transfer_info& wti);
@@ -69,6 +85,8 @@ private:
   std::atomic<uint64_t> m_last_daemon_height;
   std::atomic<uint64_t> m_last_wallet_synch_height;
   std::string m_data_dir;
+
+  
 
   //daemon stuff
   currency::core m_ccore;

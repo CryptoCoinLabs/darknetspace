@@ -33,8 +33,8 @@ namespace currency
   {
   public:
     tx_memory_pool(blockchain_storage& bchs);
-    bool add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool keeped_by_block);
-    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block);
+    bool add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool keeped_by_block,std::string alias = "");
+    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block,std::string alias = "");
     //gets tx and remove it from pool
     bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee);
 
@@ -53,7 +53,7 @@ namespace currency
     // load/store operations
     bool init(const std::string& config_folder);
     bool deinit();
-    bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, uint64_t already_donated_coins, size_t &total_size, uint64_t &fee);
+    bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, uint64_t already_donated_coins, size_t &total_size, uint64_t &fee, uint64_t height);
     bool get_transactions(std::list<transaction>& txs);
     bool get_transaction(const crypto::hash& h, transaction& tx);
     size_t get_transactions_count();
@@ -61,23 +61,27 @@ namespace currency
     bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     std::string print_pool(bool short_format);
+	bool remove_alias_tx_pair(crypto::hash id);
 
     /*
     bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);
     */
 
-#define CURRENT_MEMPOOL_ARCHIVE_VER    12
+#define CURRENT_MEMPOOL_ARCHIVE_VER    13
 
     template<class archive_t>
     void serialize(archive_t & ar, const unsigned int version)
     {
-      if(version < CURRENT_MEMPOOL_ARCHIVE_VER )
+      if(version < 12 )
         return;
       CHECK_PROJECT_NAME();
       CRITICAL_REGION_LOCAL(m_transactions_lock);
       ar & m_transactions;
       ar & m_spent_key_images;
+
+	  if(version >= 13)
+		  ar & m_aliases_to_txid;
     }
 
     struct tx_details
@@ -99,6 +103,7 @@ namespace currency
     bool is_transaction_ready_to_go(tx_details& txd);
     typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
     typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
+	typedef std::unordered_map<std::string,crypto::hash> aliases_to_txid_container;
 
     epee::critical_section m_transactions_lock;
     transactions_container m_transactions;
@@ -106,10 +111,11 @@ namespace currency
     
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;
 
-    //transactions_container m_alternative_transactions;
+	//transactions_container m_alternative_transactions;
 
     std::string m_config_folder;
     blockchain_storage& m_blockchain;
+	aliases_to_txid_container m_aliases_to_txid;
     /************************************************************************/
     /*                                                                      */
     /************************************************************************/

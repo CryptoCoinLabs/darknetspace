@@ -63,6 +63,7 @@ namespace currency
     bool open_wallet(const std::string &wallet_file, const std::string& password);
     bool close_wallet();
 
+	bool change_password(const std::vector<std::string> &args);
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -73,15 +74,19 @@ namespace currency
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
+    bool send_tx(const std::vector<std::string> &args_,std::vector<uint8_t> &extra,uint64_t fee);
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
     bool set_log(const std::vector<std::string> &args);
+	bool make_alias(const std::vector<std::string> &args);
     
     bool get_alias_from_daemon(const std::string& alias_name, currency::alias_info_base& ai);
     bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon();
+
+	bool get_daemon_alias(const std::string& alias,std::string& err);
 
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const currency::block& block);
@@ -158,5 +163,6 @@ namespace currency
     std::unique_ptr<tools::wallet2> m_wallet;
     net_utils::http::http_simple_client m_http_client;
     refresh_progress_reporter_t m_refresh_progress_reporter;
+
   };
 }

@@ -17,6 +17,8 @@
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+typedef void (*BLOCK_CALLBACK)(currency::NOTIFY_NEW_BLOCK::request &req);
+
 namespace currency
 {
 
@@ -50,11 +52,15 @@ namespace currency
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
     bool get_stat_info(core_stat_info& stat_inf);
     bool on_callback(currency_connection_context& context);
+	void set_wallet_callback(BLOCK_CALLBACK wallet_callback){ m_wallet_callback = wallet_callback; }
+	BLOCK_CALLBACK get_wallet_callback(){ return m_wallet_callback; }
     t_core& get_core(){return m_core;}
     bool is_synchronized(){return m_synchronized;}
     void log_connections();
     uint64_t get_core_inital_height();
     uint64_t get_max_seen_height();
+
+	BLOCK_CALLBACK m_wallet_callback;
   private:
     //----------------- commands handlers ----------------------------------------------
     int handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, currency_connection_context& context);

@@ -14,7 +14,7 @@ file(GLOB_RECURSE MINER miner/*)
 
 if(BUILD_GUI)
   if(MSVC)
-    file(GLOB_RECURSE QTDAEMON gui/qt-daemon/*.cpp gui/qt-daemon/*.h gui/qt-daemon/app.rc)
+    file(GLOB_RECURSE QTDAEMON gui/qt-daemon/*.cpp gui/qt-daemon/*.h gui/qt-daemon/app.rc gui/qt-daemon/html/index.html gui/qt-daemon/html/files/main.js gui/qt-daemon/html/files/ui_helper.js gui/qt-daemon/html/files/date_format.js gui/qt-daemon/html/files/style.css)
   else()
     file(GLOB_RECURSE QTDAEMON gui/qt-daemon/*.cpp gui/qt-daemon/*.h)    
   endif()

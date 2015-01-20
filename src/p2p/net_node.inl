@@ -56,7 +56,7 @@ inline int myclosesocket(int& hSocket)
 
 inline bool static  error(const char *str)
 {
-    LOG_ERROR("ERROR:" << str);
+	LOG_PRINT_L0("Proxy Error:" << str);
     return false;
 }
 
@@ -64,33 +64,67 @@ inline bool static  error(const char *str)
 #define MSG_NOSIGNAL        0
 #endif
 
-inline bool static Socks5(std::string strDest, int port, int hSocket)
+inline bool static Socks5(std::string strDest, int port, std::string &err,int hSocket = 0)
 {
 	LOG_PRINT_L2("SOCKS5 connecting "<<strDest.c_str() <<":"<<port<<"[id="<<hSocket<<"]");
     if (strDest.size() > 255)
     {
         closesocket(hSocket);
-        return error("Hostname too long");
+		err = "Hostname too long";
+        return error(err.c_str());
     }
     char pszSocks5Init[] = "\5\1\0";
     size_t nSize = sizeof(pszSocks5Init) - 1;
 
-    size_t ret = send(hSocket, pszSocks5Init, nSize, MSG_NOSIGNAL);
+	int nMySocket = 0;
+	size_t ret = 0;
+
+	//if there is no socket already created, create it by ourselves.
+	if (hSocket == 0)
+	{
+		nMySocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (nMySocket == -1)
+		{
+			err = "Error create socket";
+			return error(err.c_str());
+		}
+
+		sockaddr_in proxy;
+		proxy.sin_family = AF_INET;
+		proxy.sin_addr.s_addr = inet_addr(strDest.c_str());
+		proxy.sin_port = htons(port);
+
+		//----------------------
+		// Connect to proxy
+		ret = connect(nMySocket, (sockaddr *)& proxy, sizeof (proxy));
+		if (ret == -1)
+		{
+			closesocket(nMySocket);
+			err = ("Connect to proxy failed");
+			return error(err.c_str());
+		}
+		hSocket = nMySocket;
+	}
+
+    ret = send(hSocket, pszSocks5Init, nSize, MSG_NOSIGNAL);
     if (ret != nSize)
     {
         closesocket(hSocket);
-        return error("Error sending to proxy");
+		err = ("Error sending to proxy");
+		return error(err.c_str());
     }
     char pchRet1[2];
     if (recv(hSocket, pchRet1, 2, 0) != 2)
     {
         closesocket(hSocket);
-        return error("Error reading proxy response1");
+		err = ("Error reading proxy response1");
+		return error(err.c_str());
     }
     if (pchRet1[0] != 0x05 || pchRet1[1] != 0x00)
     {
         closesocket(hSocket);
-        return error("Proxy failed to initialize");
+		err = ("Proxy failed to initialize");
+		return error(err.c_str());
     }
     std::string strSocks5("\5\1");
     strSocks5 += '\000'; strSocks5 += '\003';
@@ -103,7 +137,8 @@ inline bool static Socks5(std::string strDest, int port, int hSocket)
     if (ret != (size_t)strSocks5.size())
     {
         closesocket(hSocket);
-        return error("Error sending to proxy");
+		err = ("Error sending to proxy");
+		return error(err.c_str());
     }
 
     const static int wantRecv = 4;
@@ -112,34 +147,38 @@ inline bool static Socks5(std::string strDest, int port, int hSocket)
     if (nRecv != wantRecv)
     {
 		closesocket(hSocket);
-        return error("Error reading proxy response2");
+		err = ("Error reading proxy response2");
+		return error(err.c_str());
     }
 
     if (pchRet2[0] != 0x05)
     {
         closesocket(hSocket);
-        return error("Proxy failed to accept request");
+		err = ("Proxy failed to accept request");
+		return error(err.c_str());
     }
     if (pchRet2[1] != 0x00)
     {
         closesocket(hSocket);
         switch (pchRet2[1])
         {
-            case 0x01: return error("Proxy error: general failure");
-            case 0x02: return error("Proxy error: connection not allowed");
-            case 0x03: return error("Proxy error: network unreachable");
-            case 0x04: return error("Proxy error: host unreachable");
-            case 0x05: return error("Proxy error: connection refused");
-            case 0x06: return error("Proxy error: TTL expired");
-            case 0x07: return error("Proxy error: protocol error");
-            case 0x08: return error("Proxy error: address type not supported");
-            default:   return error("Proxy error: unknown");
+            case 0x01: err = ("Proxy error: general failure");
+            case 0x02: err = ("Proxy error: connection not allowed");
+            case 0x03: err = ("Proxy error: network unreachable");
+            case 0x04: err = ("Proxy error: host unreachable");
+            case 0x05: err = ("Proxy error: connection refused");
+            case 0x06: err = ("Proxy error: TTL expired");
+            case 0x07: err = ("Proxy error: protocol error");
+            case 0x08: err = ("Proxy error: address type not supported");
+            default:   err = ("Proxy error: unknown");
         }
+		return error(err.c_str());
     }
     if (pchRet2[2] != 0x00)
     {
         closesocket(hSocket);
-        return error("Error: malformed proxy response");
+		err = ("Error: malformed proxy response");
+		return error(err.c_str());
     }
 
     char pchRet3[256];
@@ -150,28 +189,40 @@ inline bool static Socks5(std::string strDest, int port, int hSocket)
         case 0x03:
         {
             ret = recv(hSocket, pchRet3, 1, 0) != 1;
-            if (ret)
-                return error("Error reading from proxy1");
+			if (ret)
+			{
+				err = ("Error reading from proxy1");
+				return error(err.c_str());
+			}
+
             int nRecv = pchRet3[0];
             ret = recv(hSocket, pchRet3, nRecv, 0) != nRecv;
             break;
         }
-        default: closesocket(hSocket); return error("Error: malformed proxy response");
+		default: closesocket(hSocket); err = ("Error: malformed proxy response");  return error(err.c_str());
     }
 
     if (ret)
     {
         closesocket(hSocket);
-        return error("Error reading from proxy2");
+		err = ("Error reading from proxy2");
+		return error(err.c_str());
     }
 
     if (recv(hSocket, pchRet3, 2, 0) != 2)
     {
         closesocket(hSocket);
-        return error("Error reading from proxy3");
+        err = ("Error reading from proxy3");
+		return error(err.c_str());
     }
 
-    LOG_PRINT_L2("SOCKS5 connected "<< strDest.c_str()<<":"<<port);
+	if (nMySocket)//close socket created by ourselves.
+	{
+		closesocket(hSocket);
+	}
+
+	LOG_PRINT_L2("SOCKS5 connected " << strDest.c_str() << ":" << port);
+
     return true;
 }
 
@@ -190,12 +241,10 @@ namespace nodetool
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
   
 	//for Proxy
-	const command_line::arg_descriptor<bool>        arg_p2p_enable_proxy = { "enable-proxy", "Enable proxy, only Socks5 supported"};
-	const command_line::arg_descriptor<std::string> arg_p2p_proxy_ip =     {"proxy-ip","Set Socks5 proxy ip address(127.0.0.1)","127.0.0.1"};
-	const command_line::arg_descriptor<uint32_t>    arg_p2p_proxy_port =   { "proxy-port","Set Socks5 proxy port(9050)",9050};
+	const command_line::arg_descriptor<std::string>        arg_p2p_enable_proxy = {"enable-proxy", "Enable proxy, only Socks5 supported,eg: 127.0.0.1:9050"};
 
 	//for Tor
-	const command_line::arg_descriptor<uint32_t>    arg_p2p_enable_tor =   { "enable-tor","Enable Tor network"};
+	const command_line::arg_descriptor<bool>    arg_p2p_enable_tor =   { "enable-tor","Enable Tor network",0};
   }
 
   //-----------------------------------------------------------------------------------
@@ -212,8 +261,6 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_hide_my_port);   
     command_line::add_arg(desc, arg_p2p_use_only_priority_nodes);       
     command_line::add_arg(desc, arg_p2p_enable_proxy);    
-    command_line::add_arg(desc, arg_p2p_proxy_ip);   
-    command_line::add_arg(desc, arg_p2p_proxy_port); 
     command_line::add_arg(desc, arg_p2p_enable_tor);
   }
   //-----------------------------------------------------------------------------------
@@ -243,6 +290,12 @@ namespace nodetool
     m_config.m_net_config.send_peerlist_sz = P2P_DEFAULT_PEERS_IN_HANDSHAKE;
 
     m_first_connection_maker_call = true;
+
+	m_bEnable_proxy = false;
+	m_szProxy_ip = "";
+	m_nProxy_port = 0;
+	//for tor
+	m_bEnable_tor = 0;
     CATCH_ENTRY_L0("node_server::init_config", false);
     return true;
   }
@@ -315,13 +368,18 @@ namespace nodetool
 	  bool bReturn = true;
 	  if(bEnable_proxy == m_bEnable_proxy) return false;
 
-	  if(bEnable_proxy)
+	  if(bEnable_proxy == false)	  
+	  {
+		  m_bEnable_proxy = false;
+		  LOG_PRINT_L0("Proxy: " << "no proxy");
+	  }
+	  else
 	  {
 		  std::string str = proxy_ip + ":" + string_tools::num_to_string_fast(proxy_port);
 		  nodetool::net_address na = AUTO_VAL_INIT(na);
 		  bool r = parse_peer_from_string(na, str);
 
-		  if (r == true && proxy_ip.compare("0.0.0.0")!=0 && proxy_port != 0) 
+		 if (r == true && proxy_ip.compare("0.0.0.0")!=0 && proxy_port != 0) 
 		  {
 			  LOG_PRINT_L0("Proxy: " << str);
 			  m_szProxy_ip = proxy_ip;
@@ -330,23 +388,22 @@ namespace nodetool
 		  }
 		  else 
 		  {
-			  LOG_ERROR("Failed to parse proxy ip address and port from : " << str << ". Proxy will be disabled.");
+			  LOG_PRINT_L0("Proxy: Failed to parse proxy ip address and port from : " << str << ". Proxy will be disabled.");
 			  bReturn = false;
 			  m_bEnable_proxy = false;
 		  }
 	  }
-	  else
-	  {
-		  m_bEnable_proxy = false;
-	  }
+
+
 	  if(bReturn && bReConnect)
 	  {
 		  LOG_PRINT_L0("Reconnect all connects");
+		  
 		  m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
 		  {
 			  m_net_server.get_config_object().close(cntxt.m_connection_id );
 			  return true;
-		  });	  
+		  });
 	  }
 	  return bReturn;
  }
@@ -409,12 +466,20 @@ namespace nodetool
 	m_bEnable_tor = command_line::get_arg(vm, arg_p2p_enable_tor);
 
 	//For proxy
-	bool bEnable_proxy = command_line::get_arg(vm, arg_p2p_enable_proxy);
-	std::string proxy_ip = command_line::get_arg(vm, arg_p2p_proxy_ip);
-	int proxy_port = command_line::get_arg(vm, arg_p2p_proxy_port);
-
-	enable_proxy(bEnable_proxy,false,proxy_ip,proxy_port);
-
+	uint32_t proxy_ip = 0;
+	uint32_t proxy_port = 0;
+	bool bEnable_proxy = false;
+	if(command_line::has_arg(vm, arg_p2p_enable_proxy))
+    {       
+      std::string proxy = command_line::get_arg(vm, arg_p2p_enable_proxy);
+	  if(proxy.size() != 0) 
+	  {
+		  bool r = string_tools::parse_peer_from_string(proxy_ip, proxy_port,proxy);
+		  CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << proxy);
+		  bEnable_proxy = true;
+	  }
+	}
+	if (bEnable_proxy) enable_proxy(bEnable_proxy, false, string_tools::get_ip_string_from_int32(proxy_ip), proxy_port);
 	return true;
   }
   //-----------------------------------------------------------------------------------
@@ -1533,8 +1598,8 @@ namespace nodetool
 		  closesocket(hSocket);
 		  return;
 	  }
-
-	  int res = ::Socks5(std::string(string_tools::get_ip_string_from_int32(m_na.ip)), m_na.port, hSocket);
+	  std::string err;
+	  int res = ::Socks5(std::string(string_tools::get_ip_string_from_int32(m_na.ip)), m_na.port, err, hSocket);
 
 #ifdef WIN32
 	  fNonblock = 1;

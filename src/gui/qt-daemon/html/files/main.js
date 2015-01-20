@@ -1,4 +1,6 @@
-
+var COIN = 10000000000;
+var DEFAULT_FEE = 1000000000;
+var last_timerId;
 
 function update_last_ver_view(mode)
 {
@@ -28,28 +30,15 @@ function update_last_ver_view(mode)
 
 }
 
-var aliases_set = {};
 var current_exchange_rate = undefined;
 var current_btc_to_usd_exchange_rate = undefined;
 
 function update_aliases_autocompletion()
 {
-    if(aliases_set.aliases)
-        return;
-
-    aliases_set = jQuery.parseJSON(Qt_parent.request_aliases());
+    var aliases_set = jQuery.parseJSON(Qt_parent.request_aliases());
     if(aliases_set.aliases)
     {
-        console.log("aliases loaded: " + aliases_set.aliases.length);
-        var availableTags = [];
-        for(var i=0; i < aliases_set.aliases.length; i++)
-        {
-            availableTags.push("@" + aliases_set.aliases[i].alias);
-        }
-        $( "#transfer_address_id" ).autocomplete({
-            source: availableTags,
-            minLength: 2
-        });
+        on_set_alias_list(aliases_set);
     }
     else
     {
@@ -83,10 +72,11 @@ function on_update_daemon_state(info_obj)
         $("#open_wallet_button").button("enable");
         $("#generate_wallet_button").button("enable");
         disable_tab(document.getElementById('wallet_view_menu'), false);
+        disable_tab(document.getElementById('alias_view_menu'), false);        
         //load aliases
         update_aliases_autocompletion();
-        //$("#domining_button").button("enable");
         //show OK
+        
     }else if(info_obj.daemon_network_state == 3)//deinit
     {
         $("#synchronization_progressbar_block").show();
@@ -95,12 +85,12 @@ function on_update_daemon_state(info_obj)
 
         $("#daemon_status_text").removeClass("daemon_view_general_status_value_success_text");
         $("#open_wallet_button").button("disable");
-        $("#generate_wallet_button").button("disable");
-        //$("#domining_button").button("disable");
+        $("#generate_wallet_button").button("disable");        
 
         hide_wallet();
         inline_menu_item_select(document.getElementById('daemon_state_view_menu'));
         disable_tab(document.getElementById('wallet_view_menu'), true);
+        disable_tab(document.getElementById('alias_view_menu'), true);
         //show OK
     }else if(info_obj.daemon_network_state == 4)//deinit
     {
@@ -113,11 +103,11 @@ function on_update_daemon_state(info_obj)
 
         $("#open_wallet_button").button("disable");
         $("#generate_wallet_button").button("disable");
-        //$("#domining_button").button("disable");
 
         hide_wallet();
         inline_menu_item_select(document.getElementById('daemon_state_view_menu'));
         disable_tab(document.getElementById('wallet_view_menu'), true);
+        disable_tab(document.getElementById('alias_view_menu'), true);
         //show OK
     }
     else
@@ -143,21 +133,37 @@ function on_update_daemon_state(info_obj)
         $("#last_actual_version_text").text("(available version: " + info_obj.last_build_available + ")");
     else
         $("#last_actual_version_text").text("(Critical update: " + info_obj.last_build_available + ")");
+
+    $("#alias_count").text(info_obj.alias_count.toString());
+    $("#tx_count").text(info_obj.tx_count.toString());
+    $("#transactions_cnt_per_day").text(info_obj.transactions_cnt_per_day.toString());
+    $("#tx_pool_size").text(info_obj.tx_pool_size.toString());
+
+    var amount = info_obj.transactions_volume_per_day/COIN;
+
+    $("#transactions_volume_per_day").text(amount.toString());
+    $("#peer_count").text(info_obj.peer_count.toString());
+    $("#white_peerlist_size").text(info_obj.white_peerlist_size.toString());
+    $("#grey_peerlist_size").text(info_obj.grey_peerlist_size.toString());
+
     update_last_ver_view(info_obj.last_build_displaymode);
 }
 
 function on_update_wallet_status(wal_status)
 {
-
     if(wal_status.wallet_state == 1)
     {
         //syncmode
         $("#transfer_button_id").button("disable");
+        $("#change_password_button_id").button("disable");
+        $("#make_alias_button_id").button("disable");
         $("#synchronizing_wallet_block").show();
         $("#synchronized_wallet_block").hide();
     }else if(wal_status.wallet_state == 2)
     {
         $("#transfer_button_id").button("enable");
+        $("#change_password_button_id").button("enable");
+        $("#make_alias_button_id").button("enable");
         $("#synchronizing_wallet_block").hide();
         $("#synchronized_wallet_block").show();
     }
@@ -186,8 +192,6 @@ function print_money(amount)
     am_str = am_str.slice(0, am_str.length - 10) + "." + am_str.slice(am_str.length - 10);
     return am_str;
 }
-
-
 
 function get_details_block(td, div_id_str, transaction_id, blob_size, payment_id, fee, unlock_time)
 {
@@ -254,7 +258,7 @@ function get_transfer_html_entry(tr, is_recent)
     {
         if(tr.is_income)
         {
-            img_ref = "files/income_ico.png"
+            img_ref = "files/income_ico.png";
             action_text = "Received";
         }
         else
@@ -266,7 +270,7 @@ function get_transfer_html_entry(tr, is_recent)
     {
         if(tr.is_income)
         {
-            img_ref = "files/unconfirmed_received.png"
+            img_ref = "files/unconfirmed_received.png";
         }
         else
         {
@@ -303,18 +307,66 @@ function get_transfer_html_entry(tr, is_recent)
     return transfer_line_tamplate;
 }
 
+
+function get_alias_html_entry(alias, is_recent)
+{
+    var color_str;
+    var img_ref;
+
+    if (is_recent)
+    {
+        color_str = "#6c6c6c";
+        img_ref = "files/unconfirmed_received.png";
+    }
+    else
+    {
+        color_str = "#008DD2";
+        img_ref = "files/income_ico.png";
+    }   
+    
+    if (alias.alias === "") return;
+
+    var transfer_line_tamplate = "<div class='transfer_entry_line' id='transfer_entry_line_{5}_id' style='color: {0}'>";
+    transfer_line_tamplate += "<img  class='transfer_text_img_span' src='{1}' height='15px'>";
+    transfer_line_tamplate += "<span class='alias_alias_span'>{2}</span>";
+    transfer_line_tamplate += "<span class='alias_text_details_span'>";
+    transfer_line_tamplate += "<a href='javascript:;' onclick=\"jQuery('#{5}_id').toggle('fast');\" class=\"options_link_text\"><img src='files/tx_icon.png' height='12px' style='padding-top: 4px'></a>";
+    transfer_line_tamplate += "</span>";
+    transfer_line_tamplate += "<span class='alias_text_address_span' title='{4}'>{4}</span>";
+    transfer_line_tamplate += "{3}";
+    transfer_line_tamplate += "</div>";
+
+    var res = "<div class='transfer_entry_line_details' id='" + div_id_convert(alias.alias) + "_id'> <br><span class='tx_details_text'>Alias:</span> " + alias.alias +  "<br><b>Address:  </b>" + alias.address + "<br><b>Comment:  </b>" + alias.comment
+    + "<br><b>ViewKey</b>: " + alias.tracking_key + "<br><br></div>";
+
+    transfer_line_tamplate = transfer_line_tamplate.format(color_str,
+        img_ref,
+        alias.alias,
+        res,
+        alias.address,
+		div_id_convert(alias.alias)
+		);
+    
+    return transfer_line_tamplate;
+}
+
+function div_id_convert(str){
+	return str.replace(/\./g,'-dot-');
+}
+
 function on_update_wallet_info(wal_status)
 {
     $("#wallet_balance").text(print_money(wal_status.balance));
     $("#wallet_unlocked_balance").text(print_money(wal_status.unlocked_balance));
     $("#wallet_address").text(wal_status.address);
     $("#wallet_path").text(wal_status.path);
+    $("#wallet_tracking_key").text(wal_status.tracking_key);
     if(current_exchange_rate && current_exchange_rate !== undefined && current_exchange_rate !== 0)
     {
-        $("#est_value_btc_id").text( ((wal_status.unlocked_balance/1000000000000 )*current_exchange_rate).toFixed(5));
+        $("#est_value_btc_id").text( ((wal_status.unlocked_balance/COIN )*current_exchange_rate).toFixed(5));
         if(current_btc_to_usd_exchange_rate && current_btc_to_usd_exchange_rate !== undefined && current_btc_to_usd_exchange_rate !== 0)
         {
-            $("#est_value_usd_id").text( (((wal_status.unlocked_balance/1000000000000 )*current_exchange_rate)*current_btc_to_usd_exchange_rate).toFixed(2));
+            $("#est_value_usd_id").text( (((wal_status.unlocked_balance/COIN )*current_exchange_rate)*current_btc_to_usd_exchange_rate).toFixed(2));
         }
     }
 
@@ -339,20 +391,37 @@ function on_generate_new_wallet()
     Qt_parent.generate_wallet();
 }
 
-function show_wallet()
+function on_set_left_height(o)
 {
-    //disable_tab(document.getElementById('wallet_view_menu'), false);
-    //inline_menu_item_select(document.getElementById('wallet_view_menu'));
+    if (o === undefined || o.left_height == undefined) return;
+    Qt_parent.message_box(o.left_height);
+
+    var str = "<span style='color: #1b9700'> " + string(o.left_height) + " behind...</span>";
+
+    $("#wallet_left_height_result_span").html(str);
+}
+
+function show_wallet(o)
+{
     $("#wallet_workspace_area").show();
     $("#wallet_welcome_screen_area").hide();
-    $("#recent_transfers_container_id").html("");
-    $("#unconfirmed_transfers_container_id").html("");
+
+    if (o.bclear_recent_transfers)
+    {
+        $("#recent_transfers_container_id").html("");
+        $("#unconfirmed_transfers_container_id").html("");
+    }
+    
+    $("#alias_work_area").show();
+    //$("#alias_container_id").html("");
+    $("#unconfirmed_alias_container_id").html("");
 }
 
 function hide_wallet()
 {
     $("#wallet_workspace_area").hide();
     $("#wallet_welcome_screen_area").show();
+    $("#alias_work_area").hide();
 }
 
 function on_switch_view(swi)
@@ -365,7 +434,16 @@ function on_switch_view(swi)
     {
         //switch to wallet view
         inline_menu_item_select(document.getElementById('wallet_view_menu'));
-    }else
+    } else if (swi.view === 3)
+    {
+        //switch to alias view
+        inline_menu_item_select(document.getElementById('alias_view_menu'));
+    }
+    else if (swi.view === 4) {
+        //switch to settings view
+        inline_menu_item_select(document.getElementById('settings_view_munu'));
+    }
+    else
     {
         Qt_parent.message_box("Wrong view at on_switch_view");
     }
@@ -375,9 +453,6 @@ function on_close_wallet()
 {
     Qt_parent.close_wallet();
 }
-
-
-var last_timerId;
 
 function test_parse_and_get_locktime_function()
 {
@@ -458,6 +533,162 @@ function parse_and_get_locktime()
     return blocks_count;
 }
 
+function on_change_password()
+{
+    var transfer_obj =
+        {
+            old_password: $('#change_password_old').val(),
+            new_password: $('#change_password_new').val()
+        };
+
+    if (transfer_obj.new_password === "")
+    {
+        Qt_parent.message_box("new password can't be empty");
+        return;
+    }
+    if ($('#change_password_confirm').val() !== transfer_obj.new_password)
+    {
+        Qt_parent.message_box("confirm password not equal to new password");
+        return;
+    }
+    var transfer_res_str = Qt_parent.change_password(JSON.stringify(transfer_obj));
+    var transfer_res_obj = jQuery.parseJSON(transfer_res_str);
+
+    if (transfer_res_obj.success)
+    {
+        $('#change_password_old').val("");
+        $('#change_password_new').val("");
+        $('#change_password_confirm').val("");
+        $("#change_password_result_span").html("<span style='color: #1b9700'> Change password successfully</span>");
+        if (last_timerId !== undefined)
+            clearTimeout(last_timerId);
+
+        $("#change_password_result_zone").show("fast");
+        last_timerId = setTimeout(function () { $("change_password_result_zone").hide("fast"); }, 15000);
+    }
+    else
+        return;
+
+}
+
+function on_update_ui_config(o)
+{
+    if (o === undefined) return;
+
+    $('#is_auto_load_default_wallet').attr("checked", o.is_auto_load_default_wallet);
+
+    $('#m_str_default_wallets_path_name').empty();
+    var str = "<option value=" + o.m_str_default_wallets_path_name + ">" + o.m_str_default_wallets_path_name + "</option>";
+    $(str).appendTo("#m_str_default_wallets_path_name");
+
+    $('#is_save_default_wallets_password').attr("checked", o.is_save_default_wallets_password);
+
+    $('#is_proxy_enabled').attr("checked", o.is_proxy_enabled);
+    $('#m_str_proxy_ip').val(o.m_str_proxy_ip);
+    $('#m_n_proxy_port').val(o.m_n_proxy_port);
+
+    $('#is_proxy_need_auth').attr("checked", o.is_proxy_need_auth);
+    $('#m_str_proxy_user').val(o.m_str_proxy_user);
+    $('#m_str_proxy_pass').val(o.m_str_proxy_pass);
+
+    $('#is_tor_enabled').attr("checked", o.is_tor_enabled);
+    $('#m_n_tor_mode').val(o.m_n_tor_mode);
+
+    $('#m_str_language_id').val(o.m_str_language_id);
+    $('#m_str_default_exchange').val(o.m_str_default_exchange);
+}
+
+function on_save_config()
+{
+    var transfer_obj =
+        {
+            is_auto_load_default_wallet: $('input:checkbox[name=is_auto_load_default_wallet]:checked').val() == "true" ? true:false,
+            m_str_default_wallets_path_name: $('#m_str_default_wallets_path_name').val(),
+            is_save_default_wallets_password: $('input:checkbox[name=is_save_default_wallets_password]:checked').val() == "true" ? true:false,
+  
+            m_str_default_wallets_password: "",
+            is_proxy_enabled: $('input:checkbox[name=is_proxy_enabled]:checked').val() == "true" ? true:false,
+            m_str_proxy_ip: $('#m_str_proxy_ip').val(),
+            m_n_proxy_port: parseInt($('#m_n_proxy_port').val()),
+
+            is_proxy_need_auth: $('input:checkbox[name=is_proxy_need_auth]:checked').val() == "true" ? true:false,
+            m_str_proxy_user: $('#m_str_proxy_user').val(),
+            m_str_proxy_pass: $('#m_str_proxy_pass').val(),
+
+            is_tor_enabled: $('input:checkbox[name=is_tor_enabled]:checked').val() == "true" ? true:false,
+            m_n_tor_mode: parseInt($('input:radio[name=m_n_tor_mode]:checked').val()),
+
+            m_str_language_id: $('#m_str_language_id').val(),
+            m_str_default_exchange: $('#m_str_default_exchange').val()
+        };
+    
+    if (transfer_obj.is_auto_load_default_wallet === true && transfer_obj.m_str_default_wallets_path_name === "")
+    {
+        Qt_parent.message_box("You selected to load default wallet when starting, you must select a default wallet.");
+        return;
+    }
+    if (transfer_obj.is_proxy_enabled === true && (transfer_obj.m_str_proxy_ip ==="" || transfer_obj.m_n_proxy_port < 0 || transfer_obj.m_n_proxy_port > 65535))
+    {
+        Qt_parent.message_box("You enabled proxy, please input correct proxy ip address and port.");
+        return;
+    }
+    if (transfer_obj.is_proxy_need_auth === true && (transfer_obj.m_str_proxy_user === "" || transfer_obj.m_str_proxy_pass === "" ))
+    {
+        Qt_parent.message_box("Your proxy need auth, please input correct proxy user and password.");
+        return;
+    }
+    var transfer_res_str = Qt_parent.store_config(JSON.stringify(transfer_obj));
+    var transfer_res_obj = jQuery.parseJSON(transfer_res_str);
+
+    if (transfer_res_obj.success)
+    {
+        $("#save_config_result_span").html("<span style='color: #1b9700'> Save config successfully.</span><br>");
+        if (last_timerId !== undefined)
+            clearTimeout(last_timerId);
+
+        $("#save_config_result_zone").show("fast");
+        last_timerId = setTimeout(function () { $("save_config_result_zone").hide("fast"); }, 15000);
+    }
+    else
+        return;
+}
+
+
+function on_make_alias()
+{
+    var transfer_obj = 
+        {
+            alias:   $('#make_alias_alias').val(),
+            address: "",
+            comment: $('#make_alias_comment').val(),
+            tracking_key: $('#make_alias_viewkey').val()
+        };
+
+    if(transfer_obj.alias === "")
+    {
+        Qt_parent.message_box("alias can't be empty");
+        return;
+    }
+
+    var transfer_res_str = Qt_parent.make_alias(JSON.stringify(transfer_obj));
+    var transfer_res_obj = jQuery.parseJSON(transfer_res_str);
+
+    if (transfer_res_obj.success)
+    {
+        $('#make_alias_alias').val("");
+        $('#make_alias_comment').val("");
+        $('#make_alias_viewkey').val("");
+        $("#make_alias_result_span").html("<span style='color: #1b9700'> Alias successfully made, transaction " + transfer_res_obj.tx_hash + ", " + transfer_res_obj.tx_blob_size + " bytes</span><br>");
+        if (last_timerId !== undefined)
+            clearTimeout(last_timerId);
+
+        $("#make_alias_result_zone").show("fast");
+        last_timerId = setTimeout(function () { $("make_alias_result_zone").hide("fast"); }, 15000);
+    }
+    else
+        return;
+}
+
 
 function on_transfer()
 {
@@ -472,6 +703,12 @@ function on_transfer()
         lock_time: 0,
         payment_id: $('#payment_id').val()
     };
+
+    if (transfer_obj.destinations.amount < DEFAULT_FEE / COIN)
+    {
+        Qt_parent.message_box("Wrong amount, amount should be at least 0.1 DNC.");
+        return;
+    }
 
     var lock_time = parse_and_get_locktime();
     if(lock_time === undefined)
@@ -494,8 +731,6 @@ function on_transfer()
 
     if(transfer_res_obj.success)
     {
-
-
         $('#transfer_address_id').val("");
         $('#transfer_amount_id').val("");
         $('#payment_id').val("");
@@ -509,6 +744,29 @@ function on_transfer()
     }
     else
         return;
+}
+
+function on_set_alias_list(o)
+{
+    if (o === undefined || o.aliases === undefined || o.aliases.length === undefined)
+        return;
+
+    console.log("aliases loaded: " + o.aliases.length);
+	console.log(o.aliases);
+
+    var availableTags = [];
+    var str = "";
+    for (var i = 0; i < o.aliases.length; i++)
+    {
+        availableTags.push("@" + o.aliases[i].alias);
+		if($('#transfer_entry_line_'+div_id_convert(o.aliases[i].alias)+'_id').length == 0){
+			str += get_alias_html_entry(o.aliases[i], false);
+		}
+    }
+
+    $("#transfer_address_id").autocomplete({ source: availableTags, minLength: 2 });
+    //$("#alias_container_id").html("");
+    $("#alias_container_id").prepend(str);    
 }
 
 function on_set_recent_transfers(o)
@@ -529,8 +787,8 @@ function on_set_recent_transfers(o)
         str += get_transfer_html_entry(o.unconfirmed[i], false);
     }
     $("#unconfirmed_transfers_container_id").prepend(str);
-}
 
+}
 
 function secure_request_url_result_handler(info_obj)
 {
@@ -575,34 +833,54 @@ function init_btc_exchange_rate()
     console.log("Request to https://www.bits222tamp.net/api/ticker/ sent");
 }
 
-
-
 function str_to_obj(str)
 {
     var info_obj = jQuery.parseJSON(str);
     this.cb(info_obj);
 }
 
+function on_test_proxy()
+{
+    var proxy_ip =  $('#m_str_proxy_ip').val();
+    var proxy_port = parseInt($('#m_n_proxy_port').val());
+
+    if (proxy_ip === "")
+    {
+        Qt_parent.message_box("Wrong proxy ip address: " + proxy_ip);
+        return;
+    }
+    if (proxy_port < 0 || proxy_port > 65535) {
+        Qt_parent.message_box("Wrong proxy port: " + proxy_port);
+        return;
+    }
+    if(Qt_parent.test_proxy(proxy_ip, proxy_port))
+    {
+        Qt_parent.message_box("proxy: " + proxy_ip + ": tested successfully.");
+    }
+}
+
 $(function()
-{ // DOM ready
+{
+    // DOM ready
     $( "#synchronization_progressbar" ).progressbar({value: false });
     $( "#wallet_progressbar" ).progressbar({value: false });
     $(".common_button").button();
 
     $("#open_wallet_button").button("disable");
     $("#generate_wallet_button").button("disable");
-    $("#domining_button").button("disable");
 
-
-    //$("#transfer_button_id").button("disable");
     $('#open_wallet_button').on('click',  on_open_wallet);
     $('#transfer_button_id').on('click',  on_transfer);
     $('#generate_wallet_button').on('click',  on_generate_new_wallet);
     $('#close_wallet_button_id').on('click',  on_close_wallet);
+    $('#change_password_button_id').on('click', on_change_password);
+    $('#make_alias_button_id').on('click', on_make_alias);
+    $('#settings_save_button_id').on('click', on_save_config);
+    $('#test_proxy_button_id').on('click', on_test_proxy);
+    $('#settings_view_menu').click(function () { Qt_parent.update_ui_config_from_ui(); });
 
     //setTimeout(init_btc_exchange_rate, 100);
-
-
+    
     //services['poloniex'].init('#plot_area');
     //$('#exchange_view').on('visible');
 
@@ -612,8 +890,10 @@ $(function()
 
     //test_parse_and_get_locktime_function();
 
-    show_wallet();
-    on_update_wallet_status({wallet_state: 2});
+    show_wallet({ bclear_recent_transfers: true });
+    on_update_wallet_status({ wallet_state: 2 });
+
+    /*
     var tttt = {
         ti:{
             height: 10,
@@ -679,31 +959,38 @@ $(function()
     tttt.ti.tx_hash = "b19670a07875c0239df165ec43958fdbf4fc258caf7456415eafabc281c2152";
     $("#unconfirmed_transfers_container_id").prepend( get_transfer_html_entry(tttt.ti, false));
 
+     var alias =
+        {
+            alias: "darknetspace",
+            address: "DB71SSN71WSWzw9GyZFTReHCde5ga94HUad9iaS5Nme5PzGsZdyvdx62T3oAGG2PhrMRB5mkTZ93nCNmVgW58xT82cwbdXn",
+            comment: "darknet currency",
+            tracking_key: "b19670a07875c0239df165ec43958fdbf4fc258caf7456415eafabc281c21c2"
+         };
 
+    $("alias_container_id").prepend(get_alias_html_entry(alias, false)); */
     /****************************************************************************/
-
-
-
     inline_menu_item_select(document.getElementById('daemon_state_view_menu'));
 
-    //inline_menu_item_select(document.getElementById('wallet_view_menu'));
+    hide_wallet();
+    on_update_wallet_status({ wallet_state: 1 });
 
     Qt.update_daemon_state.connect(str_to_obj.bind({cb: on_update_daemon_state}));
     Qt.update_wallet_status.connect(str_to_obj.bind({cb: on_update_wallet_status}));
     Qt.update_wallet_info.connect(str_to_obj.bind({cb: on_update_wallet_info}));
-    Qt.money_transfer.connect(str_to_obj.bind({cb: on_money_transfer}));
+    Qt.money_transfer.connect(str_to_obj.bind({ cb: on_money_transfer }));
+    Qt.update_ui_config.connect(str_to_obj.bind({ cb: on_update_ui_config }));
 
-    Qt.show_wallet.connect(show_wallet);
+    Qt.show_wallet.connect(str_to_obj.bind({ cb: show_wallet }));
     Qt.hide_wallet.connect(hide_wallet);
     Qt.switch_view.connect(on_switch_view);
     Qt.set_recent_transfers.connect(str_to_obj.bind({cb: on_set_recent_transfers}));
     Qt.handle_internal_callback.connect(on_handle_internal_callback);
 
-
-    hide_wallet();
-    on_update_wallet_status({wallet_state: 1});
+    Qt.set_left_height.connect(str_to_obj.bind({ cb:on_set_left_height}));
+   
     // put it here to disable wallet tab only in qt-mode
-    disable_tab(document.getElementById('wallet_view_menu'), true);
+    //disable_tab(document.getElementById('wallet_view_menu'), true);
+    //disable_tab(document.getElementById('alias_view_menu'), true);
     $("#version_text").text(Qt_parent.get_version());
     $("#version_text").text(Qt_parent.get_version());
 });

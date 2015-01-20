@@ -188,8 +188,15 @@ namespace currency
       tvc.m_verifivation_failed = true;
       return false;
     }
-
-    bool r = add_new_tx(tx, tx_hash, tx_prefixt_hash, tvc, keeped_by_block);
+	std::string alias;
+	if(!check_tx_extra(tx,alias))
+    {
+      LOG_PRINT_RED_L0("Tx have wrong extra, rejected");
+	  tvc.m_verifivation_failed = true;
+      return false;
+    }
+	
+    bool r = add_new_tx(tx, tx_hash, tx_prefixt_hash, tvc, keeped_by_block,alias);
     if(tvc.m_verifivation_failed)
     {LOG_PRINT_RED_L0("Transaction verification failed: " << tx_hash);}
     else if(tvc.m_verifivation_impossible)
@@ -258,23 +265,18 @@ namespace currency
     {
       LOG_PRINT_RED_L0("tx have the similar keyimages");
       return false;
-    }
-    
-    if(!check_tx_extra(tx))
-    {
-      LOG_PRINT_RED_L0("Tx have wrong extra, rejected");
-      return false;
-    }
+    }    
 
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::check_tx_extra(const transaction& tx)
+  bool core::check_tx_extra(const transaction& tx,std::string &alias)
   {
     tx_extra_info ei = AUTO_VAL_INIT(ei);
     bool r = parse_and_validate_tx_extra(tx, ei);
-    if(!r)
-      return false;
+	if(ei.m_alias.m_alias.size()) alias  = ei.m_alias.m_alias;
+
+    if(!r) return false;
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -290,13 +292,13 @@ namespace currency
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block)
+  bool core::add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block,std::string alias)
   {
     crypto::hash tx_hash = get_transaction_hash(tx);
     crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
     blobdata bl;
     t_serializable_object_to_blob(tx, bl);
-    return add_new_tx(tx, tx_hash, tx_prefix_hash, tvc, keeped_by_block);
+    return add_new_tx(tx, tx_hash, tx_prefix_hash, tvc, keeped_by_block,alias);
   }
   //-----------------------------------------------------------------------------------------------
   size_t core::get_blockchain_total_transactions()
@@ -309,7 +311,7 @@ namespace currency
     return m_blockchain_storage.get_outs(amount, pkeys);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, tx_verification_context& tvc, bool keeped_by_block)
+  bool core::add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, tx_verification_context& tvc, bool keeped_by_block,std::string alias)
   {
     if(m_mempool.have_tx(tx_hash))
     {
@@ -323,7 +325,7 @@ namespace currency
       return true;
     }
 
-    return m_mempool.add_tx(tx, tx_hash, tvc, keeped_by_block);
+    return m_mempool.add_tx(tx, tx_hash, tvc, keeped_by_block,alias);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_block_template(block& b, const account_public_address& adr, wide_difficulty_type& diffic, uint64_t& height, const blobdata& ex_nonce, bool vote_for_donation, const alias_info& ai)

@@ -47,7 +47,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_password = {"password", "Wallet password", "", true};
   const command_line::arg_descriptor<int> arg_daemon_port = {"daemon-port", "Use daemon instance at port <arg> instead of default", 0};
   const command_line::arg_descriptor<uint32_t> arg_log_level = {"set_log", "", 0, true};
-  const command_line::arg_descriptor<std::string> arg_config_file = { "config", "config file", ""};
+  //const command_line::arg_descriptor<std::string> arg_config_file = { "config", "config file", ""};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -154,8 +154,9 @@ namespace
 
 bool simple_wallet::init_config(std::string config_file)
 {
+	//not finished yet
 	epee::serialization::load_t_from_json_file(m_config, config_file);
-	if (!m_config.wallets_path_name.size())//wallet file error
+	if (!m_config.wallets_path_name.size())//wallet file name error
 	{
 		fail_msg_writer() << "error wallet file from json file: " << SIMPLE_WALLET_CONFIG_FILE;
 		return false;
@@ -166,7 +167,7 @@ bool simple_wallet::init_config(std::string config_file)
 	}
 
 
-	return true;
+	return false;
 }
 std::string simple_wallet::get_commands_str()
 {
@@ -202,6 +203,31 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), "Show current wallet public address");
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), "Save wallet synchronized data");
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
+  m_cmd_binder.set_handler("change_password", boost::bind(&simple_wallet::change_password, this, _1), "change_password <old_password> <new_password>");
+  m_cmd_binder.set_handler("make_alias", boost::bind(&simple_wallet::make_alias, this, _1), "pay 101 DNC to miners to make an alias. make_alias <alias>  [comment] [viewkey]");
+
+}
+
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::change_password(const std::vector<std::string> &args)
+{
+	if(args.size() != 2) 
+	{
+		fail_msg_writer() << "use: change_password <old_password> <new_password>";
+		return true;
+	}
+
+	bool r = m_wallet->changepassword(args[0],args[1]);
+	if(!r)  
+	{
+		fail_msg_writer() << "change password failed.";
+		return true;
+	}
+	else
+	{
+		std::cout << "change password successfully." << std::endl;
+	}
+	return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_log(const std::vector<std::string> &args)
@@ -320,7 +346,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (m_daemon_address.empty())
     m_daemon_address = std::string("http://") + m_daemon_host + ":" + std::to_string(m_daemon_port);
 
-   if (command_line::has_arg(vm, arg_password))
+  if (command_line::has_arg(vm, arg_password))
   {
     pwd_container.password(command_line::get_arg(vm, arg_password));
   }
@@ -363,7 +389,7 @@ void simple_wallet::handle_command_line(const boost::program_options::variables_
   m_daemon_address = command_line::get_arg(vm, arg_daemon_address);
   m_daemon_host    = command_line::get_arg(vm, arg_daemon_host);
   m_daemon_port    = command_line::get_arg(vm, arg_daemon_port);
-  m_str_config_file = command_line::get_arg(vm, arg_config_file);
+  //m_str_config_file = command_line::get_arg(vm, arg_config_file);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::try_connect_to_daemon()
@@ -540,19 +566,19 @@ void simple_wallet::on_new_block(uint64_t height, const currency::block& block)
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_received(uint64_t height, const currency::transaction& tx, size_t out_index)
 {
-  message_writer(epee::log_space::console_color_green, false) <<
-    "Height " << height <<
-    ", transaction " << get_transaction_hash(tx) <<
-    ", received " << print_money(tx.vout[out_index].amount);
+//  message_writer(epee::log_space::console_color_green, false) <<
+//    "Height " << height <<
+//    ", transaction " << get_transaction_hash(tx) <<
+//    ", received " << print_money(tx.vout[out_index].amount);
   m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_spent(uint64_t height, const currency::transaction& in_tx, size_t out_index, const currency::transaction& spend_tx)
 {
-  message_writer(epee::log_space::console_color_magenta, false) <<
-    "Height " << height <<
-    ", transaction " << get_transaction_hash(spend_tx) <<
-    ", spent " << print_money(in_tx.vout[out_index].amount);
+//  message_writer(epee::log_space::console_color_magenta, false) <<
+//    "Height " << height <<
+//    ", transaction " << get_transaction_hash(spend_tx) <<
+//    ", spent " << print_money(in_tx.vout[out_index].amount);
   m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
@@ -783,6 +809,24 @@ uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
   err = interpret_rpc_response(r, res.status);
   return res.height;
 }
+//------------------------------------------------------------------------------------------------------------------
+//return false:  alias not found
+//return true:   unkown or exists
+bool simple_wallet::get_daemon_alias(const std::string& alias,std::string& err)
+{
+  epee::net_utils::http::http_simple_client http_client;
+
+  currency::COMMAND_RPC_GET_ALIAS_DETAILS::request req = AUTO_VAL_INIT(req);
+  req.alias = alias;
+  currency::COMMAND_RPC_GET_ALIAS_DETAILS::response res = AUTO_VAL_INIT(res);
+  bool r = epee::net_utils::invoke_http_json_rpc(m_daemon_address + "/json_rpc", "get_alias_details", req, res, http_client);
+  err = res.status;
+
+  if(res.status == "Alias not found")
+	  return false;
+  else
+	  return true;
+}
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
 {
@@ -798,7 +842,7 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::transfer(const std::vector<std::string> &args_)
+bool simple_wallet::send_tx(const std::vector<std::string> &args_,std::vector<uint8_t> &extra,uint64_t fee)
 {
   if (!try_connect_to_daemon())
     return true;
@@ -818,7 +862,6 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
   local_args.erase(local_args.begin());
 
-  std::vector<uint8_t> extra;
   if (1 == local_args.size() % 2)
   {
     std::string payment_id_str = local_args.back();
@@ -855,10 +898,10 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
     }
 
     bool ok = currency::parse_amount(de.amount, local_args[i + 1]);
-    if(!ok || 0 == de.amount)
+	if(!ok ||  DEFAULT_FEE > de.amount)
     {
       fail_msg_writer() << "amount is wrong: " << local_args[i] << ' ' << local_args[i + 1] <<
-        ", expected number from 0 to " << print_money(std::numeric_limits<uint64_t>::max());
+        ", expected number from " <<  DEFAULT_FEE/COIN <<" to " << print_money(std::numeric_limits<uint64_t>::max()/COIN);
       return true;
     }
 
@@ -868,7 +911,7 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   try
   {
     currency::transaction tx;
-    m_wallet->transfer(dsts, fake_outs_count, 0, DEFAULT_FEE, extra, tx);
+    m_wallet->transfer(dsts, fake_outs_count, 0, fee, extra, tx);
     success_msg_writer(true) << "Money successfully sent, transaction " << get_transaction_hash(tx) << ", " << get_object_blobsize(tx) << " bytes";
   }
   catch (const tools::error::daemon_busy&)
@@ -947,6 +990,89 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
   }
 
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::transfer(const std::vector<std::string> &args_)
+{
+  std::vector<uint8_t> extra;  
+  return send_tx(args_,extra,DEFAULT_FEE);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::make_alias(const std::vector<std::string> &args)
+{
+	if(args.size() < 1 || args.size() > 3)
+	{
+		std::cout << "usage: make_alias <alias>  [comment] [viewkey]" << std::endl;
+		return true;
+	}
+	std::string str;
+	std::string alias = args[0];
+	str.resize(alias.size());
+	std::transform(alias.begin(), alias.end(), str.begin(), (int(*)(int))std::tolower);
+
+	if (!currency::validate_alias_name(str))
+	{
+		std::cout << "Wrong alias name" << std::endl;
+		return true;
+	}
+
+	std::string err;
+	if (get_daemon_alias(str, err))
+	{
+		if(err == CORE_RPC_STATUS_OK)
+			std::cout << "Alias already exists" << std::endl;
+		else if(err == "")
+			std::cout << "No connection to daemon" << std::endl;
+		else
+			std::cout << err << std::endl;
+		return true;
+	}
+	
+	currency::alias_info ai = AUTO_VAL_INIT(ai);
+	ai.m_alias = str;
+
+	if (!currency::get_account_address_from_str(ai.m_address, m_wallet->get_account().get_public_address_str()))
+	{
+		std::cout << "target account address has wrong format" << std::endl;
+		return true;
+	}
+
+	if(args.size() >= 2)
+	{
+		if(args[1].size() > 64)
+		{
+			std::cout << "comment too long, must be less 64 chars." << std::endl;
+			return true;
+		}
+		ai.m_text_comment = args[1];
+	}	
+	
+	if(args.size() == 3)
+	{
+		str = args[2];		
+		if(str.size() != 64)
+		{
+			std::cout << "viewkey has wrong length, must be 64 chars  or empty." << std::endl;
+			return true;
+		}
+		std::string bin_str;
+		epee::string_tools::parse_hexstr_to_binbuff(str, bin_str);
+		ai.m_view_key = *reinterpret_cast<const crypto::secret_key*>(bin_str.c_str());
+	}
+
+	std::vector<std::string> myargs;
+	myargs.push_back("0");
+	myargs.push_back(CURRENCY_DONATIONS_ADDRESS);
+	myargs.push_back("1");
+
+    std::vector<uint8_t> extra;
+	std::string buff;
+    bool r = make_tx_extra_alias_entry(buff, ai);
+    if(!r) return false;
+    extra.resize(buff.size());
+    memcpy(&extra[0], buff.data(), buff.size());
+
+	return send_tx(myargs,extra,MAKE_ALIAS_MINIMUM_FEE);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
@@ -1094,11 +1220,12 @@ int main(int argc, char* argv[])
     bool r = wrpc.init(vm);
     CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize wallet rpc server");
 
+
     tools::signal_handler::install([&wrpc, &wal] {
       wrpc.send_stop_signal();
       wal.store();
     });
-    LOG_PRINT_L0("Starting wallet rpc server");
+	LOG_PRINT_L0("Starting wallet rpc server");
     wrpc.run();
     LOG_PRINT_L0("Stopped wallet rpc server");
     try

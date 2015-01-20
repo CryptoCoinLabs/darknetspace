@@ -479,7 +479,7 @@ bool gen_block_is_too_big::generate(std::vector<test_event_entry>& events) const
 
   // Creating a huge miner_tx, it will have a lot of outs
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
-  static const size_t tx_out_count = CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE / 2;
+  static const size_t tx_out_count = get_block_granted_full_reward_zone(get_block_height(blk_0)) / 2;
   uint64_t amount = get_outs_money_amount(miner_tx);
   uint64_t portion = amount / tx_out_count;
   uint64_t remainder = amount % tx_out_count;

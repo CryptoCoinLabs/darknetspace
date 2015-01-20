@@ -18,13 +18,11 @@ namespace tools
   //-----------------------------------------------------------------------------------
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_port = {"rpc-bind-port", "Starts wallet as rpc server for wallet operations, sets bind port for server", "", true};
   const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_bind_ip = {"rpc-bind-ip", "Specify ip to bind rpc server", "127.0.0.1"};
-  //const command_line::arg_descriptor<std::string> wallet_rpc_server::arg_rpc_allow_ip = {"rpc-allow-ip", "Specify ip list file name allowed to access rpc server, on line one ip address", ""};
 
   void wallet_rpc_server::init_options(boost::program_options::options_description& desc)
   {
     command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
-	//command_line::add_arg(desc, arg_rpc_allow_ip);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w)

@@ -9,6 +9,7 @@
 #include "console_handler.h"
 #include "p2p/net_node.h"
 #include "currency_protocol/currency_protocol_handler.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 #include "common/util.h"
 #include "crypto/hash.h"
 #include "warnings.h"
@@ -19,11 +20,13 @@ DISABLE_VS_WARNINGS(4100)
 class daemon_cmmands_handler
 {
   nodetool::node_server<currency::t_currency_protocol_handler<currency::core> >& m_srv;
+  currency::core_rpc_server &m_rpc_server;
 public:
-  daemon_cmmands_handler(nodetool::node_server<currency::t_currency_protocol_handler<currency::core> >& srv):m_srv(srv)
+	daemon_cmmands_handler(nodetool::node_server<currency::t_currency_protocol_handler<currency::core> >& srv,  
+		currency::core_rpc_server & rpc_server) :m_srv(srv), m_rpc_server(rpc_server)
   {
     m_cmd_binder.set_handler("help", boost::bind(&daemon_cmmands_handler::help, this, _1), "Show this help");
-    m_cmd_binder.set_handler("print_pl", boost::bind(&daemon_cmmands_handler::print_pl, this, _1), "Print peer list");
+	m_cmd_binder.set_handler("print_pl", boost::bind(&daemon_cmmands_handler::print_pl, this, _1), "Print peer list");
     m_cmd_binder.set_handler("print_cn", boost::bind(&daemon_cmmands_handler::print_cn, this, _1), "Print connections");
     m_cmd_binder.set_handler("print_bc", boost::bind(&daemon_cmmands_handler::print_bc, this, _1), "Print blockchain info in a given blocks range, print_bc <begin_height> [<end_height>]");
     //m_cmd_binder.set_handler("print_bci", boost::bind(&daemon_cmmands_handler::print_bci, this, _1));
@@ -37,11 +40,37 @@ public:
     m_cmd_binder.set_handler("show_hr", boost::bind(&daemon_cmmands_handler::show_hr, this, _1), "Start showing hash rate");
     m_cmd_binder.set_handler("hide_hr", boost::bind(&daemon_cmmands_handler::hide_hr, this, _1), "Stop showing hash rate");
     m_cmd_binder.set_handler("make_alias", boost::bind(&daemon_cmmands_handler::make_alias, this, _1), "Puts alias reservation record into block template, if alias is free");
- 	//m_cmd_binder.set_handler("set_donations", boost::bind(&daemon_cmmands_handler::set_donations, this, _1), "Set donations mode: true if you vote for donation, and false - if against");
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
-    m_cmd_binder.set_handler("get_transactions_statics", boost::bind(&daemon_cmmands_handler::get_transactions_statistics, this, _1), "Calculates transactions statistics");
-    m_cmd_binder.set_handler("enable_proxy", boost::bind(&daemon_cmmands_handler::enable_proxy, this, _1), "Enable Socks5 proxy, enable_proxy <proxy_ip_address>  <proxy_port>");
+    m_cmd_binder.set_handler("tx_stat", boost::bind(&daemon_cmmands_handler::get_transactions_statistics, this, _1), "Calculates transactions statistics");
+    m_cmd_binder.set_handler("enable_proxy", boost::bind(&daemon_cmmands_handler::enable_proxy, this, _1), "Enable Socks5 proxy, enable_proxy <proxy_ip_address> <proxy_port>");
     m_cmd_binder.set_handler("disable_proxy", boost::bind(&daemon_cmmands_handler::disable_proxy, this, _1), "Disable Socks5 proxy");
+    m_cmd_binder.set_handler("height", boost::bind(&daemon_cmmands_handler::height, this, _1), "Print the blockchain height");
+    m_cmd_binder.set_handler("alias", boost::bind(&daemon_cmmands_handler::alias, this, _1), "Print all alias");
+	m_cmd_binder.set_handler("getinfo", boost::bind(&daemon_cmmands_handler::getinfo, this, _1), "Print many statistics data");
+  }
+
+bool getinfo(const std::vector<std::string>& args)
+ {
+	  currency::COMMAND_RPC_GET_INFO::request req;
+	  currency::COMMAND_RPC_GET_INFO::response res = AUTO_VAL_INIT(res);
+	  epee::net_utils::connection_context_base cntx = AUTO_VAL_INIT(cntx);
+	  if (m_rpc_server.on_get_info(req, res, cntx) == false)
+	  {
+		  std::cout << "can't get info from rpc server" << ENDL;
+		  return false;
+	  }
+
+	  std::string json;
+	  if (epee::serialization::store_t_to_json(res, json))
+	  {
+		  std::cout << json << ENDL;
+		  return true;
+	  }
+	  else
+	  {
+		  std::cout << "error store response to json str" << ENDL;
+		  return false;
+	  }
   }
 
   bool start_handling()
@@ -75,25 +104,33 @@ private:
     std::cout << get_commands_str() << ENDL;
     return true;
   }
-  //--------------------------------------------------------------------------------
-  bool set_donations(const std::vector<std::string>& args)
+ //--------------------------------------------------------------------------------
+  bool height(const std::vector<std::string>& args)
   {
-    if(args.size() != 1)
+	std::cout << m_srv.get_payload_object().get_core().get_current_blockchain_height() << ENDL;
+    return true;
+  }
+  //--------------------------------------------------------------------------------
+  bool alias(const std::vector<std::string>& args)
+  {
+	std::list<currency::alias_info> aliases;
+    m_srv.get_payload_object().get_core().get_blockchain_storage().get_all_aliases(aliases);
+	int nCount = 0;
+    for(auto a: aliases)
     {
-      std::cout << "wrong set_donation parameters, use true or false" << ENDL;
-      return true;
-    }
+	  std::cout << "index  : " << ++nCount << ENDL;
+	  std::cout << "alias  : " << "@" << a.m_alias << ENDL;
+	  std::cout << "address: " << currency::get_account_address_as_str(a.m_address) << ENDL;
 
-    if(args[0] == "true")
-      m_srv.get_payload_object().get_core().get_miner().set_do_donations(true);
-    else if(args[0] == "false")
-      m_srv.get_payload_object().get_core().get_miner().set_do_donations(false);
-    else
-    {
-      std::cout << "wrong set_donation parameters, use true or false" << ENDL;
-      return true;
+	  if(a.m_text_comment.size())
+		std::cout << "comment: " << a.m_text_comment << ENDL;
+
+	  if(a.m_view_key != currency::null_skey)
+		std::cout << "viewkey: " << string_tools::pod_to_hex(a.m_view_key) << ENDL;
+
+	  std::cout << ENDL;
     }
-    
+	std::cout << "alias count : " << aliases.size() << ENDL;
     return true;
   }
   //--------------------------------------------------------------------------------
@@ -385,9 +422,10 @@ private:
       return true;
     }
 
-	if(m_srv.enable_proxy(true,true,args[0],atoi(args[1].c_str())))
+	proxy_port = atoi(args[1].c_str());
+	if (m_srv.enable_proxy(true, true, args[0], proxy_port))
 	{
-		std::cout << "Proxy:  "<< proxy_ip << ":" << proxy_port << " enabled now. " << std::endl;
+		std::cout << "Proxy:  " << args[0] << ":" << proxy_port << " enabled now. " << std::endl;
 	}
 	
     return true;

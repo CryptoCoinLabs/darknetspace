@@ -12,6 +12,7 @@
 #include "storages/portable_storage_template_helper.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "wallet/wallet_rpc_server_commans_defs.h"
+#include "gui_config.h"
 POP_WARNINGS
 
 #endif
@@ -20,6 +21,44 @@ namespace view
 {
 
   /*slots structures*/
+  struct make_alias_params
+  {
+	std::string alias;
+    std::string address;
+    std::string tracking_key;
+    std::string comment;
+	
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(alias)
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(tracking_key)
+      KV_SERIALIZE(comment)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct change_password_params
+  {
+    std::string old_password;
+    std::string new_password;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(old_password)
+      KV_SERIALIZE(new_password)
+    END_KV_SERIALIZE_MAP()
+   };
+  struct change_password_response
+  {
+    bool success;
+    std::string err_msg;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(success)
+      KV_SERIALIZE(err_msg)
+    END_KV_SERIALIZE_MAP()
+   };
+
+#define save_config_response change_password_response 
+
   struct transfer_destination
   {
     std::string address;
@@ -30,7 +69,6 @@ namespace view
       KV_SERIALIZE(amount)
     END_KV_SERIALIZE_MAP()
   };
-
   struct transfer_params
   {
     std::list<transfer_destination> destinations;
@@ -104,6 +142,15 @@ public:
     uint64_t last_build_displaymode;
     std::string last_build_available;
 
+	uint64_t alias_count;
+	uint64_t tx_count;
+	uint64_t transactions_cnt_per_day;
+	uint64_t tx_pool_size;
+	uint64_t transactions_volume_per_day;
+	uint64_t peer_count;
+	uint64_t white_peerlist_size;
+	uint64_t grey_peerlist_size;
+
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(text_state)
       KV_SERIALIZE(daemon_network_state)
@@ -116,11 +163,38 @@ public:
       KV_SERIALIZE(hashrate)
       KV_SERIALIZE(last_build_displaymode)
       KV_SERIALIZE(last_build_available)
+
+	  KV_SERIALIZE(alias_count)
+      KV_SERIALIZE(tx_count)
+      KV_SERIALIZE(transactions_cnt_per_day)
+      KV_SERIALIZE(tx_pool_size)
+      KV_SERIALIZE(transactions_volume_per_day)
+      KV_SERIALIZE(peer_count)
+      KV_SERIALIZE(white_peerlist_size)
+      KV_SERIALIZE(grey_peerlist_size)
+
     END_KV_SERIALIZE_MAP()
   };
+  
+  struct wallet_recent_transfers
+  {
+	  bool bclear_recent_transfers;
 
+	  wallet_recent_transfers(bool clear_recent_transfers = true){ bclear_recent_transfers = clear_recent_transfers; }
 
+	  BEGIN_KV_SERIALIZE_MAP()
+		  KV_SERIALIZE(bclear_recent_transfers)
+	  END_KV_SERIALIZE_MAP()
+  };
 
+  struct wallet_left_height
+  {
+	  uint64_t left_height;
+
+	  BEGIN_KV_SERIALIZE_MAP()
+		  KV_SERIALIZE(left_height)
+	  END_KV_SERIALIZE_MAP()
+  };
 
   struct wallet_status_info
   {
@@ -129,7 +203,6 @@ public:
       wallet_state_synchronizing = 1,
       wallet_state_ready = 2
     };
-
 
     uint64_t wallet_state;
 
@@ -143,14 +216,14 @@ public:
     uint64_t unlocked_balance;
     uint64_t balance;
     std::string address;
-    std::string tracking_hey;
+    std::string tracking_key;
     std::string path;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(unlocked_balance)
       KV_SERIALIZE(balance)
       KV_SERIALIZE(address)
-      KV_SERIALIZE(tracking_hey)
+      KV_SERIALIZE(tracking_key)
       KV_SERIALIZE(path)
     END_KV_SERIALIZE_MAP()
   };
@@ -212,9 +285,6 @@ public:
     END_KV_SERIALIZE_MAP()
   };
 
-
-
-
   struct i_view
   {
     virtual bool update_daemon_status(const daemon_status_info& info)=0;
@@ -223,11 +293,13 @@ public:
     virtual bool update_wallet_status(const wallet_status_info& wsi)=0;
     virtual bool update_wallet_info(const wallet_info& wsi)=0;
     virtual bool money_transfer(const transfer_event_info& wsi) = 0;
-    virtual bool show_wallet()=0;
+	virtual bool show_wallet(const wallet_recent_transfers &t) = 0;
     virtual bool hide_wallet()= 0;
     virtual bool switch_view(int view_no)=0;
     virtual bool set_recent_transfers(const transfers_array& ta) = 0;
     virtual bool set_html_path(const std::string& path)=0;
+	virtual bool update_ui_config(const gui_config & cfg) = 0;
+	virtual bool set_left_height(const wallet_left_height & wi) = 0;
   };
 
   struct view_stub: public i_view
@@ -238,10 +310,12 @@ public:
     virtual bool update_wallet_status(const wallet_status_info& /*wsi*/){return true;}
     virtual bool update_wallet_info(const wallet_info& /*wsi*/){return true;}
     virtual bool money_transfer(const transfer_event_info& /*wsi*/){ return true; }
-    virtual bool show_wallet(){return true;}
+	virtual bool show_wallet(const wallet_recent_transfers &t){ return true; }
     virtual bool hide_wallet(){ return true; }
     virtual bool switch_view(int /*view_no*/){ return true; }
     virtual bool set_recent_transfers(const transfers_array& /*ta*/){ return true; }
     virtual bool set_html_path(const std::string& path){ return true; };
+	virtual bool update_ui_config(const gui_config & cfg){ return true; }
+	virtual bool set_left_height(const wallet_left_height & wi) { return true; }
   };
 }

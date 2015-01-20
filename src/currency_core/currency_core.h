@@ -93,12 +93,12 @@ namespace currency
      void on_synchronized();
 
    private:
-     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, tx_verification_context& tvc, bool keeped_by_block);
-     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block);
+     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, tx_verification_context& tvc, bool keeped_by_block,std::string alias = "");
+     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block,std::string alias = "");
      bool add_new_block(const block& b, block_verification_context& bvc);
      bool load_state_data();
      bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const blobdata& blob);
-     bool check_tx_extra(const transaction& tx);
+     bool check_tx_extra(const transaction& tx,std::string &alias);
 
      bool check_tx_syntax(const transaction& tx);
      //check correct values, amounts and all lightweight checks not related with database

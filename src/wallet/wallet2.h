@@ -21,7 +21,7 @@
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/chacha8.h"
 #include "crypto/hash.h"
-
+#include "currency_protocol/currency_protocol_handler.h"
 #include "wallet_errors.h"
 
 #define DEFAULT_TX_SPENDABLE_AGE                               10
@@ -53,18 +53,16 @@ namespace tools
     currency::account_public_address addr_for_dust;
 
     tx_dust_policy(uint64_t a_dust_threshold = 0, bool an_add_to_fee = true, currency::account_public_address an_addr_for_dust = currency::account_public_address())
-      : dust_threshold(a_dust_threshold)
-      , add_to_fee(an_add_to_fee)
-      , addr_for_dust(an_addr_for_dust)
-    {
+		:dust_threshold(DEFAULT_FEE),add_to_fee(an_add_to_fee),addr_for_dust(an_addr_for_dust)
+	{
     }
   };
 
   class wallet2
   {
-    wallet2(const wallet2&) : m_run(true), m_callback(0) {};
+	  wallet2(const wallet2&) : m_run(true), m_callback(0) { init("http://localhost:" + string_tools::num_to_string_fast(RPC_DEFAULT_PORT));};
   public:
-    wallet2() : m_run(true), m_callback(0) {};
+	  wallet2() : m_run(true), m_callback(0){ init("http://localhost:" + string_tools::num_to_string_fast(RPC_DEFAULT_PORT)); };
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -108,7 +106,7 @@ namespace tools
         FIELD(account_data)
       END_SERIALIZE()
     };
-
+	bool changepassword(const std::string& old_password, const std::string& new_password);
     void generate(const std::string& wallet, const std::string& password);
     void load(const std::string& wallet, const std::string& password);    
     void store();
@@ -117,7 +115,7 @@ namespace tools
 
     void get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count, bool bRecent_first = true);
     void get_unconfirmed_transfers(std::vector<wallet_rpc::wallet_transfer_info>& trs);
-    void init(const std::string& daemon_address = "http://localhost:8080");
+	void init(const std::string& daemon_address = "http://localhost:" + string_tools::num_to_string_fast(RPC_DEFAULT_PORT));
     bool deinit();
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
@@ -145,6 +143,9 @@ namespace tools
     bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
 	uint64_t get_incoming_tx_size()const { return m_transfer_history.size(); }
+
+	static void CALLBACK  process_new_block(currency::NOTIFY_NEW_BLOCK::request & req);
+
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -169,8 +170,8 @@ namespace tools
     static uint64_t select_indices_for_transfer(std::list<size_t>& ind, std::map<uint64_t, std::list<size_t> >& found_free_amounts, uint64_t needed_money);
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
-    void load_keys(const std::string& keys_file_name, const std::string& password);
-    void process_new_transaction(const currency::transaction& tx, uint64_t height, const currency::block& b);
+    bool load_keys(const std::string& keys_file_name, const std::string& password,currency::account_base &account);
+    double process_new_transaction(const currency::transaction& tx, uint64_t height, const currency::block& b);
     void process_new_blockchain_entry(const currency::block& b, currency::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids);
@@ -198,6 +199,8 @@ namespace tools
     std::vector<crypto::hash> m_blockchain;
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround 
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
+
+	static wallet2 * m_pThis;
 
     transfer_container m_transfers;
     payment_container m_payments;
@@ -482,11 +485,10 @@ namespace tools
     {
       splitted_dsts.push_back(currency::tx_destination_entry(dust, dust_policy.addr_for_dust));
     }
-
     bool r = currency::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
     CHECK_AND_THROW_WALLET_EX(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time);
     update_current_tx_limit();
-    CHECK_AND_THROW_WALLET_EX(CURRENCY_MAX_TRANSACTION_BLOB_SIZE <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
+    CHECK_AND_THROW_WALLET_EX(currency::get_max_transaction_blob_size(get_blockchain_current_height()) <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 
     std::string key_images;
     bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool

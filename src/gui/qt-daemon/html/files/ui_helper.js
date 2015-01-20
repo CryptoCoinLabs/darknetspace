@@ -70,6 +70,7 @@ function init_controls()
     $('.inline_menu_bar_item').on('click',  on_inline_menu_bar_item_click);
 }
 
+
 $(document).ready(function()
 {
     init_controls();
