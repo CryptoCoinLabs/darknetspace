@@ -637,6 +637,15 @@ bool daemon_backend::make_alias(const view::make_alias_params& alias, currency::
 		return false;
 	}
 	std::string str;
+
+	if (m_wallet->get_blockchain_current_height() < CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK)
+	{
+		str = "Alias name can't be make untill the " + boost::to_string(CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK);
+		str += "th block reached.";
+		m_pview->show_msg_box(str);
+		return false;
+	}
+
 	str.resize(alias.alias.size());
 	std::transform(alias.alias.begin(), alias.alias.end(), str.begin(), (int(*)(int))std::tolower);
 
