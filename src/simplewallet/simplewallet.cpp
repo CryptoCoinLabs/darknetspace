@@ -1006,6 +1006,14 @@ bool simple_wallet::make_alias(const std::vector<std::string> &args)
 		return true;
 	}
 	std::string str;
+	if (m_wallet->get_blockchain_current_height() < CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK)
+	{
+		str = "Alias name can't be make untill the " + boost::to_string(CURRENCY_BLOCK_GRANTED_FULL_REWARD_ZONE_ENLARGE_STARTING_BLOCK);
+		str += "th block reached.";
+		std::cout << str;
+		return true;
+	}
+
 	std::string alias = args[0];
 	str.resize(alias.size());
 	std::transform(alias.begin(), alias.end(), str.begin(), (int(*)(int))std::tolower);

@@ -144,7 +144,7 @@ namespace tools
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
 	uint64_t get_incoming_tx_size()const { return m_transfer_history.size(); }
 
-	static void CALLBACK  process_new_block(currency::NOTIFY_NEW_BLOCK::request & req);
+	static void process_new_block(currency::NOTIFY_NEW_BLOCK::request & req);
 
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
