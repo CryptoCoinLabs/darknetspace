@@ -233,14 +233,14 @@ namespace tools
 bool wallet_rpc_server::on_get_incoming_tx(const wallet_rpc::COMMAND_RPC_GET_INCOMING_TX::request& req, wallet_rpc::COMMAND_RPC_GET_INCOMING_TX::response& res, epee::json_rpc::error& er, connection_context& cntx)
 {
 	uint64_t count = m_wallet.get_incoming_tx_size();
-	if(req.tx_start_index > count || req.tx_start_index < 0 )
+	if(req.tx_start_index > count)
 	{
       er.code = WALLET_RPC_ERROR_CODE_WRONG_TX_START_INDEX;
 	  er.message = "Transaction start index should be within 0 to " + std::to_string(count);
       return false;
     }
 	uint64_t tx_get_count = req.tx_get_count;
-	if(req.tx_get_count + req.tx_start_index > count || req.tx_get_count <= 0 )
+	if(req.tx_get_count + req.tx_start_index > count)
 	{
       tx_get_count = count - req.tx_start_index;
     }

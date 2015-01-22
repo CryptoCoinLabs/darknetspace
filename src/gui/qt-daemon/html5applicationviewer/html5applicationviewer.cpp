@@ -591,9 +591,17 @@ QString Html5ApplicationViewer::store_config(const QString &json_transfer_object
 	{
 		uint32_t ip = 0;
 		bool bReturn = string_tools::get_ip_int32_from_string(ip, cpp.m_str_proxy_ip);
-		if (!bReturn) { message_box("save config failed: wrong ip address"); return false; }
+		if (!bReturn)
+		{
+			message_box("save config failed: wrong ip address");
+			epee::serialization::store_t_to_json(cpr).c_str();
+		}
 
-		if (cpp.m_n_proxy_port <0 || cpp.m_n_proxy_port >65535) { message_box("save config failed: wrong port"); return false; }
+		if (cpp.m_n_proxy_port > 65535)
+		{
+			message_box("save config failed: wrong port");
+			epee::serialization::store_t_to_json(cpr).c_str();
+		}
 	}
 
 	m_config = cpp;
