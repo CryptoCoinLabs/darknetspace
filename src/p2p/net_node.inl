@@ -60,10 +60,6 @@ inline bool static  error(const char *str)
     return false;
 }
 
-#ifdef WIN32
-#define MSG_NOSIGNAL        0
-#endif
-
 inline bool static Socks5(std::string strDest, int port, std::string &err,int hSocket = 0)
 {
 	LOG_PRINT_L2("SOCKS5 connecting "<<strDest.c_str() <<":"<<port<<"[id="<<hSocket<<"]");
@@ -106,7 +102,7 @@ inline bool static Socks5(std::string strDest, int port, std::string &err,int hS
 		hSocket = nMySocket;
 	}
 
-    ret = send(hSocket, pszSocks5Init, nSize, MSG_NOSIGNAL);
+    ret = send(hSocket, pszSocks5Init, nSize, 0);
     if (ret != nSize)
     {
         closesocket(hSocket);
@@ -133,7 +129,7 @@ inline bool static Socks5(std::string strDest, int port, std::string &err,int hS
     strSocks5 += static_cast<char>((port >> 8) & 0xFF);
     strSocks5 += static_cast<char>((port >> 0) & 0xFF);
 
-    ret = send(hSocket, strSocks5.c_str(), strSocks5.size(), MSG_NOSIGNAL);
+    ret = send(hSocket, strSocks5.c_str(), strSocks5.size(), 0);
     if (ret != (size_t)strSocks5.size())
     {
         closesocket(hSocket);
