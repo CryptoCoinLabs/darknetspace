@@ -39,7 +39,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Registry]
 Root: HKCR; Subkey: ".dnc"; ValueType: string; ValueName: ""; ValueData: "DarkNetSpaceWalletDataFile"; Flags: uninsdeletevalue
-Root: HKCR; Subkey: ".dnc.keys"; ValueType: string; ValueName: ""; ValueData: "DarkNetSpaceWalletDataKyesFile"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: ".keys"; ValueType: string; ValueName: ""; ValueData: "DarkNetSpaceWalletDataKyesFile"; Flags: uninsdeletevalue
 Root: HKCR; Subkey: "DarkNetSpaceWalletDataFile"; ValueType: string; ValueName: ""; ValueData: "DarkNetSpace Wallet's Data File"; Flags: uninsdeletekey
 Root: HKCR; Subkey: "DarkNetSpaceWalletDataKyesFile"; ValueType: string; ValueName: ""; ValueData: "DarkNetSpace Wallet's Keys File"; Flags: uninsdeletekey 
 Root: HKCR; Subkey: "DarkNetSpaceWalletDataFile\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\qt-dnsp.exe,0"
