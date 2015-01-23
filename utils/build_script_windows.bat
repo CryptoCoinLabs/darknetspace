@@ -1,10 +1,10 @@
 SET QT_PREFIX_PATH=C:\Qt\Qt5.3.0\5.3\msvc2013_64
 SET INNOSETUP_PATH=C:\Program Files (x86)\Inno Setup 5\ISCC.exe
 SET QT_BINARIES_PATH=C:\home\projects\binaries\qt-daemon
-SET ACHIVE_NAME_PREFIX=bbr-win-x64-
+SET ACHIVE_NAME_PREFIX=DarkNetSpace_Win64_
 
 
-cd boolberry
+cd darknetspace
 git pull
 IF %ERRORLEVEL% NEQ 0 (
   goto error
@@ -83,7 +83,7 @@ IF %ERRORLEVEL% NEQ 0 (
   goto error
 )
 
-msbuild src/qt-boolb.vcxproj  /p:Configuration=Release /t:Build
+msbuild src/qt-dnsp.vcxproj  /p:Configuration=Release /t:Build
 
 IF %ERRORLEVEL% NEQ 0 (
   goto error
@@ -92,7 +92,7 @@ IF %ERRORLEVEL% NEQ 0 (
 endlocal
 
 cd src\release
-zip ..\..\..\..\builds\%ACHIVE_NAME_PREFIX%%version%.zip qt-boolb.exe
+zip ..\..\..\..\builds\%ACHIVE_NAME_PREFIX%%version%.zip qt-dnsp.exe
 
 IF %ERRORLEVEL% NEQ 0 (
   goto error

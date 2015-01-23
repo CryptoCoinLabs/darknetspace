@@ -37,7 +37,7 @@ fi
 
 /Users/phil/Qt/5.3/clang_64/bin/macdeployqt qt-dnsp.app
 if [ $? -ne 0 ]; then
-    echo "Failed to macdeployqt qt-boolb.app"
+    echo "Failed to macdeployqt qt-dnsp.app"
     exit $?
 fi
 
@@ -53,7 +53,7 @@ if [ $? -ne 0 ]; then
     exit $?
 fi
 
-zip -r -y "dnsp-macos-x64-v0.2.0.zip" qt-dnsp.app
+zip -r -y "dnsp-macos-x64-v0.7.0.zip" qt-dnsp.app
 if [ $? -ne 0 ]; then
     echo "Failed to zip app"
     exit $?
