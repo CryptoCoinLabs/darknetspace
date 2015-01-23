@@ -5,7 +5,7 @@ case $1 in
         cat <<'EOM'
 graph_title Height
 graph_vlabel height
-graph_category boolb
+graph_category darknetspace
 height.label height
 height.type COUNTER
 EOM
@@ -13,4 +13,4 @@ EOM
 esac
 
 printf "height.value "
-connectivity_tool --ip=127.0.0.1 --rpc_port=10102 --timeout=1000 --rpc_get_daemon_info | grep height | cut -d ' ' -f2
+connectivity_tool --ip=127.0.0.1 --rpc_port=37709 --timeout=1000 --rpc_get_daemon_info | grep height | cut -d ' ' -f2
