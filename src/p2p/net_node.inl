@@ -93,7 +93,7 @@ inline bool static Socks5(std::string strDest, int port, std::string &err,int hS
 		//----------------------
 		// Connect to proxy
 		ret = connect(nMySocket, (sockaddr *)& proxy, sizeof (proxy));
-		if (ret == -1)
+		if (ret != 0)
 		{
 			closesocket(nMySocket);
 			err = ("Connect to proxy failed");
@@ -541,7 +541,9 @@ namespace nodetool
 #else
     ADD_HARDCODED_SEED_NODE("74.207.237.162:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));
     ADD_HARDCODED_SEED_NODE("115.28.32.12:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));
-
+	ADD_HARDCODED_SEED_NODE("120.24.245.58:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));
+	ADD_HARDCODED_SEED_NODE("115.28.174.69:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));
+	ADD_HARDCODED_SEED_NODE("123.56.88.145:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));
 #endif
 
     bool res = handle_command_line(vm);

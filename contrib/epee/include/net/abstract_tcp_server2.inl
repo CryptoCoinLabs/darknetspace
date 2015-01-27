@@ -308,16 +308,28 @@ DISABLE_VS_WARNINGS(4355)
     //request complete
     
     epee::critical_region_t<decltype(m_send_que_lock)> send_guard(m_send_que_lock);
-    if(m_send_que.size() > ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
+    if(m_send_que.size() >= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
     {
-      send_guard.unlock();
-      LOG_ERROR("send que size is "<< m_send_que.size() << " more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
-      close();
+		try
+		{
+			boost::asio::ip::tcp::endpoint endpoint = socket_.remote_endpoint();
+			LOG_PRINT_L0("[" << endpoint.address().to_string() << ":" << std::to_string(endpoint.port()) << "]send que size is "<< m_send_que.size()  \
+				<< " more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), clear send que and shutting down connection");
+		}
+		catch (boost::system::system_error & ec)
+		{
+			LOG_PRINT_L0("[ sock " << socket_.native_handle() << " ] send que size is " << m_send_que.size()  \
+				<< " more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), clear send que and shutting down connection");
+		}
+
+	  //m_send_que.clear();
+	  send_guard.unlock();
+	  close();
       return false;
     }
 
-    m_send_que.resize(m_send_que.size()+1);
-    m_send_que.back().assign((const char*)ptr, cb);
+	 m_send_que.resize(m_send_que.size()+1);
+     m_send_que.back().assign((const char*)ptr, cb);
     
     if(m_send_que.size() > 1)
     {
@@ -378,13 +390,22 @@ DISABLE_VS_WARNINGS(4355)
   template<class t_protocol_handler>
   void connection<t_protocol_handler>::handle_write(const boost::system::error_code& e, size_t cb)
   {
-    TRY_ENTRY();
-    LOG_PRINT_L4("[sock " << socket_.native_handle() << "] Assync send calledback " << cb);
+    TRY_ENTRY();    
+
+	LOG_PRINT_L4("[sock " << socket_.native_handle() << "]  Assync send calledback " << cb);
 
     if (e)
-    {
-      LOG_PRINT_L0("[sock " << socket_.native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
-      shutdown();
+    {      
+		try
+		{
+			boost::asio::ip::tcp::endpoint endpoint = socket_.remote_endpoint();
+			LOG_PRINT_L0("[" << endpoint.address().to_string() << ":" << std::to_string(endpoint.port()) << "] Some problems at write: " << e.message() << ':' << e.value());
+		}
+		catch (boost::system::system_error & ec)
+		{
+			LOG_PRINT_L0("[sock " << socket_.native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
+		}
+       shutdown();
       return;
     }
 
@@ -392,7 +413,7 @@ DISABLE_VS_WARNINGS(4355)
     CRITICAL_REGION_BEGIN(m_send_que_lock);
     if(m_send_que.empty())
     {
-      LOG_ERROR("[sock " << socket_.native_handle() << "] m_send_que.size() == 0 at handle_write!");
+		LOG_ERROR("[sock " << socket_.native_handle() << "] m_send_que.size() == 0 at handle_write!");
       return;
     }
 

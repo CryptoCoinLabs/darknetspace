@@ -218,7 +218,7 @@ double wallet2::process_new_transaction(const currency::transaction& tx, uint64_
     }
 
 	double db_tx_money = (double)(tx_money_got_in_outs/COIN-tx_money_spent_in_ins/COIN);
-	return db_tx_money;
+	return std::max(db_tx_money,0.0);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::prepare_wti(wallet_rpc::wallet_transfer_info& wti, uint64_t height, uint64_t timestamp, const currency::transaction& tx, uint64_t amount, const money_transfer2_details& td)
