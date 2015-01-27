@@ -86,6 +86,20 @@ namespace currency
     {
       if(kept_by_block)
       {
+		  //check alias repeat or not
+		  if (alias.size())
+		  {
+			  auto it = m_aliases_to_txid.find(alias);
+			  if (it != m_aliases_to_txid.end())
+			  {
+				  LOG_ERROR("the same alias " << alias << " exists in tx_pool, hash: " << id);
+				  tvc.m_verifivation_failed = true;
+				  tvc.m_added_to_pool = false;
+				  return false;
+			  }
+			  m_aliases_to_txid[alias] = id;
+		  }
+
         //anyway add this transaction to pool, because it related to block
         auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
         CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
@@ -239,8 +253,9 @@ namespace currency
          (tx_age > CURRENCY_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && it->second.kept_by_block) )
       {
         LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
-        m_transactions.erase(it++);
 		remove_alias_tx_pair(it->first);
+        m_transactions.erase(it++);
+		
       }else
         ++it;
     }
