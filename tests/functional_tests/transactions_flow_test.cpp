@@ -32,6 +32,7 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
   std::vector<currency::tx_destination_entry> dsts;
   dsts.reserve(parts);
   uint64_t amount_used = 0;
+  if (parts == 0) parts = 1;
   uint64_t max_part = amount_to_transfer / parts;
 
   for (size_t i = 0; i < parts; ++i)
@@ -45,7 +46,7 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
       de.amount = amount_to_transfer - amount_used;
     amount_used += de.amount;
 
-    //std::cout << "PARTS (" << amount_to_transfer << ") " << amount_used << " " << de.amount << std::endl;
+    std::cout << "PARTS (" << amount_to_transfer << ") " << amount_used << " " << de.amount << std::endl;
 
     dsts.push_back(de);
   }
@@ -78,20 +79,31 @@ uint64_t get_money_in_first_transfers(const tools::wallet2::transfer_container& 
 
 bool transactions_flow_test(std::string& working_folder,
   std::string path_source_wallet,
+  std::string source_pass,
   std::string path_terget_wallet,
+  std::string dest_pass,
   std::string& daemon_addr_a,
   std::string& daemon_addr_b,
   uint64_t amount_to_transfer, size_t mix_in_factor, size_t transactions_count, size_t transactions_per_second)
 {
   LOG_PRINT_L0("-----------------------STARTING TRANSACTIONS FLOW TEST-----------------------");
   tools::wallet2 w1, w2;
-  if(path_source_wallet.empty())
-    path_source_wallet = generate_random_wallet_name();
+  if (path_source_wallet.empty())
+  {
+	  path_source_wallet = generate_random_wallet_name();
+	  source_pass = "12345";
+  }
 
-  if(path_terget_wallet.empty())
-    path_terget_wallet = generate_random_wallet_name();
+  if (path_terget_wallet.empty())
+  {
+	  path_terget_wallet = generate_random_wallet_name();
+	  dest_pass = source_pass;
+  }
+    
+   path_source_wallet = working_folder + "/" + path_source_wallet;
+  path_terget_wallet = working_folder + "/" + path_terget_wallet;
 
-
+  /*
   try
   {
     w1.generate(working_folder + "/" + path_source_wallet, "");
@@ -102,8 +114,9 @@ bool transactions_flow_test(std::string& working_folder,
     LOG_ERROR("failed to generate wallet: " << e.what());
     return false;
   }
-
+*/
   w1.init(daemon_addr_a);
+  w1.load(path_source_wallet, source_pass);
 
   size_t blocks_fetched = 0;
   bool received_money;
@@ -115,11 +128,13 @@ bool transactions_flow_test(std::string& working_folder,
   }
 
   w2.init(daemon_addr_b);
+  w2.load(path_terget_wallet, dest_pass);
 
   LOG_PRINT_GREEN("Using wallets: " << ENDL
-    << "Source:  " << w1.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
-    << "Target:  " << w2.get_account().get_public_address_str() << ENDL << "Path: " << working_folder + "/" + path_terget_wallet, LOG_LEVEL_1);
+    << "Source:  " << w1.get_account().get_public_address_str() << ENDL << "Path: " << path_source_wallet << ENDL
+    << "Target:  " << w2.get_account().get_public_address_str() << ENDL << "Path: " << path_terget_wallet, LOG_LEVEL_0);
 
+  /*
   //lets do some money
   epee::net_utils::http::http_simple_client http_client;
   COMMAND_RPC_STOP_MINING::request daemon1_req = AUTO_VAL_INIT(daemon1_req);
@@ -136,11 +151,14 @@ bool transactions_flow_test(std::string& working_folder,
   CHECK_AND_ASSERT_MES(daemon_rsp.status == CORE_RPC_STATUS_OK, false, "failed to getrandom_outs.bin");
 
   //wait for money, until balance will have enough money
-  w1.refresh(blocks_fetched, received_money, ok);
+  w1.refresh(blocks_fetched, received_money, ok); 
+  */
+
   while(w1.unlocked_balance() < amount_to_transfer)
   {
-    misc_utils::sleep_no_w(1000);
-    w1.refresh(blocks_fetched, received_money, ok);
+    LOG_ERROR("Money in source wallet is not enought , transfer enough money to it, waiting for 5 seconds to conitnue... ");
+	misc_utils::sleep_no_w(5000);
+	w1.refresh(blocks_fetched, received_money, ok);
   }
 
   //lets make a lot of small outs to ourselves
@@ -157,7 +175,8 @@ bool transactions_flow_test(std::string& working_folder,
       BOOST_FOREACH(tools::wallet2::transfer_details& td, incoming_transfers)
       {
         currency::transaction tx_s;
-        bool r = do_send_money(w1, w1, 0, td.m_tx.vout[td.m_internal_output_index].amount - DEFAULT_FEE, tx_s, 50);
+		uint64_t amount = (td.m_tx.vout[td.m_internal_output_index].amount - DEFAULT_FEE) / COIN;
+		bool r = do_send_money(w1, w1, 0, amount, tx_s, 100);
         CHECK_AND_ASSERT_MES(r, false, "Failed to send starter tx " << get_transaction_hash(tx_s));
         LOG_PRINT_GREEN("Starter transaction sent " << get_transaction_hash(tx_s), LOG_LEVEL_0);
         if(++count >= FIRST_N_TRANSFERS)
@@ -187,8 +206,8 @@ bool transactions_flow_test(std::string& working_folder,
     uint64_t amount_to_tx = (amount_to_transfer - transfered_money) > transfer_size ? transfer_size: (amount_to_transfer - transfered_money);
     while(w1.unlocked_balance() < amount_to_tx + DEFAULT_FEE)
     {
-      misc_utils::sleep_no_w(1000);
-      LOG_PRINT_L0("not enough money, waiting for cashback or mining");
+	  LOG_PRINT_L0("not enough money, waiting for cashback...5 seconds to conitue...");
+      misc_utils::sleep_no_w(5000);     
       w1.refresh(blocks_fetched, received_money, ok);
     }
 

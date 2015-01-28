@@ -30,7 +30,7 @@ namespace currency
   {
 	  CRITICAL_REGION_LOCAL(m_aliases_lock);
 	  bool bFound = false;
-	  for (auto it = m_aliases_to_txid.begin(); it != m_aliases_to_txid.end();)
+	  for (auto it = m_aliases_to_txid.begin(); it != m_aliases_to_txid.end();it++)
 	  {
 		  crypto::hash hash = it->second;
 		  if (hash == id)
@@ -63,6 +63,7 @@ namespace currency
 	  //check alias repeat or not
 	  if (alias.size())
 	  {
+		  CRITICAL_REGION_LOCAL(m_aliases_lock);
 		  crypto::hash h = find_alias(alias);
 		  if (h != null_hash)
 		  {
@@ -70,6 +71,7 @@ namespace currency
 			  return false;
 		  }
 		  m_aliases_to_txid[alias] = id;
+		  LOG_PRINT_L2("Add alias: " << alias << " into pool with tx: " << id);
 	  }
 	  return true;
   }
@@ -169,7 +171,7 @@ namespace currency
 		if (!add_alias_tx_pair(alias, id))
 		{
 			tvc.m_verifivation_failed = true;
-			tvc.m_added_to_pool = false;
+			tvc.m_added_to_pool = false;			
 			return false;
 		}
 

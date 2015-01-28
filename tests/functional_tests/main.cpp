@@ -20,13 +20,15 @@ namespace
 
   const command_line::arg_descriptor<std::string> arg_working_folder  = {"working-folder", "", "."};
   const command_line::arg_descriptor<std::string> arg_source_wallet   = {"source-wallet",  "", "", true};
+  const command_line::arg_descriptor<std::string> arg_source_pass = { "source-pass", "", "", true };
   const command_line::arg_descriptor<std::string> arg_dest_wallet     = {"dest-wallet",    "", "", true};
-  const command_line::arg_descriptor<std::string> arg_daemon_addr_a   = {"daemon-addr-a",  "", "127.0.0.1:8080"};
-  const command_line::arg_descriptor<std::string> arg_daemon_addr_b   = {"daemon-addr-b",  "", "127.0.0.1:8082"};
+  const command_line::arg_descriptor<std::string> arg_dest_pass = { "dest-pass", "", "", true };
+  const command_line::arg_descriptor<std::string> arg_daemon_addr_a   = {"daemon-addr-a",  "", "http://127.0.0.1:57709"};
+  const command_line::arg_descriptor<std::string> arg_daemon_addr_b   = {"daemon-addr-b",  "", "http://127.0.0.1:57709"};
 
   const command_line::arg_descriptor<uint64_t> arg_transfer_amount = {"transfer_amount",   "", 60000000000000};
   const command_line::arg_descriptor<size_t> arg_mix_in_factor     = {"mix-in-factor",     "", 10};
-  const command_line::arg_descriptor<size_t> arg_tx_count          = {"tx-count",          "", 100};
+  const command_line::arg_descriptor<size_t> arg_tx_count          = {"tx-count",          "", 10000};
   const command_line::arg_descriptor<size_t> arg_tx_per_second     = {"tx-per-second",     "", 20};
   const command_line::arg_descriptor<size_t> arg_test_repeat_count = {"test_repeat_count", "", 1};
 }
@@ -37,8 +39,8 @@ int main(int argc, char* argv[])
   string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_3);
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
+  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_4);
+  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_4);
   log_space::log_singletone::add_logger(LOGGER_FILE, 
     log_space::log_singletone::get_default_log_file().c_str(), 
     log_space::log_singletone::get_default_log_folder().c_str());
@@ -52,6 +54,10 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_working_folder);
   command_line::add_arg(desc_options, arg_source_wallet);
   command_line::add_arg(desc_options, arg_dest_wallet);
+
+  command_line::add_arg(desc_options, arg_source_pass);
+  command_line::add_arg(desc_options, arg_dest_pass);
+
   command_line::add_arg(desc_options, arg_daemon_addr_a);
   command_line::add_arg(desc_options, arg_daemon_addr_b);
 
@@ -82,10 +88,18 @@ int main(int argc, char* argv[])
   {
     std::string working_folder     = command_line::get_arg(vm, arg_working_folder);
     std::string path_source_wallet, path_target_wallet;
-    if(command_line::has_arg(vm, arg_source_wallet))
-      path_source_wallet = command_line::get_arg(vm, arg_source_wallet);
-    if(command_line::has_arg(vm, arg_dest_wallet))
+	std::string source_pass, dest_pass;
+	if (command_line::has_arg(vm, arg_source_wallet))
+	{
+		path_source_wallet = command_line::get_arg(vm, arg_source_wallet);
+		source_pass = command_line::get_arg(vm, arg_source_pass);
+	}
+      
+	if (command_line::has_arg(vm, arg_dest_wallet))
+	{
       path_target_wallet = command_line::get_arg(vm, arg_dest_wallet);
+	  dest_pass = command_line::get_arg(vm, arg_dest_pass);
+	}
 
     std::string daemon_addr_a = command_line::get_arg(vm, arg_daemon_addr_a);
     std::string daemon_addr_b = command_line::get_arg(vm, arg_daemon_addr_b);
@@ -96,7 +110,7 @@ int main(int argc, char* argv[])
     size_t repeat_count = command_line::get_arg(vm, arg_test_repeat_count);
 
     for(size_t i = 0; i != repeat_count; i++)
-      if(!transactions_flow_test(working_folder, path_source_wallet, path_target_wallet, daemon_addr_a, daemon_addr_b, amount_to_transfer, mix_in_factor, transactions_count, transactions_per_second))
+      if(!transactions_flow_test(working_folder, path_source_wallet, source_pass,path_target_wallet, dest_pass ,daemon_addr_a, daemon_addr_b, amount_to_transfer, mix_in_factor, transactions_count, transactions_per_second))
         break;
 
     std::string s;
