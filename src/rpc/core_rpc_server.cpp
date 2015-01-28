@@ -574,8 +574,8 @@ namespace currency
       {//load tracking key
         if(!string_tools::parse_tpod_from_hex_string(req.alias_details.details.tracking_key, ai.m_view_key))
         {
-          error_resp.code = CORE_RPC_ERROR_CODE_INVALID_ALIAS_ADDRESS;
-          error_resp.message = "Invalid alias address";
+          error_resp.code = CORE_RPC_ERROR_CODE_INVALID_TRACKING_KEY;
+          error_resp.message = "Invalid tracking key";
           return false;
         }
       }

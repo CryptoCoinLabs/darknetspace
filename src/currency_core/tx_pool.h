@@ -61,8 +61,10 @@ namespace currency
     bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     std::string print_pool(bool short_format);
-	bool remove_alias_tx_pair(crypto::hash id);
 
+	bool remove_alias_tx_pair(crypto::hash id);
+	bool add_alias_tx_pair(std::string & alias, crypto::hash id);
+	crypto::hash  find_alias(std::string & alias);
     /*
     bool flush_pool(const std::strig& folder);
     bool inflate_pool(const std::strig& folder);
@@ -116,6 +118,8 @@ namespace currency
     std::string m_config_folder;
     blockchain_storage& m_blockchain;
 	aliases_to_txid_container m_aliases_to_txid;
+
+	epee::critical_section m_aliases_lock;
     /************************************************************************/
     /*                                                                      */
     /************************************************************************/

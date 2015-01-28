@@ -26,6 +26,54 @@ namespace currency
 
   }
   //---------------------------------------------------------------------------------
+  bool  tx_memory_pool::remove_alias_tx_pair(crypto::hash id)
+  {
+	  CRITICAL_REGION_LOCAL(m_aliases_lock);
+	  bool bFound = false;
+	  for (auto it = m_aliases_to_txid.begin(); it != m_aliases_to_txid.end();)
+	  {
+		  crypto::hash hash = it->second;
+		  if (hash == id)
+		  {
+			  m_aliases_to_txid.erase(it);
+			  bFound = true;
+			  break;
+		  }
+	  }
+	  return bFound;
+  }
+  //---------------------------------------------------------------------------------
+  crypto::hash  tx_memory_pool::find_alias(std::string & alias)
+  {
+	  //remove_alias
+	  if (alias.size())
+	  {
+		  CRITICAL_REGION_LOCAL(m_aliases_lock);
+		  auto it = m_aliases_to_txid.find(alias);
+		  if (it != m_aliases_to_txid.end())
+		  {
+			  return it->second ;
+		  }
+	  }
+	  return null_hash;
+  }
+  //---------------------------------------------------------------------------------
+  bool tx_memory_pool::add_alias_tx_pair(std::string & alias, crypto::hash id)
+  {
+	  //check alias repeat or not
+	  if (alias.size())
+	  {
+		  crypto::hash h = find_alias(alias);
+		  if (h != null_hash)
+		  {
+			  LOG_ERROR("the same alias " << alias << " exists in pool, id: " << h <<", so tx: "<< id << " can't be added to pool.");
+			  return false;
+		  }
+		  m_aliases_to_txid[alias] = id;
+	  }
+	  return true;
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool kept_by_block,std::string alias)
   {    
     size_t blob_size = get_object_blobsize(tx);
@@ -86,20 +134,16 @@ namespace currency
     {
       if(kept_by_block)
       {
-		  //check alias repeat or not
-		  if (alias.size())
+		  //if there is a same alias on the block, then delete the tx with the same alias in the pool
+		  crypto::hash hash;
+		  if (alias.size() && (hash = find_alias(alias)) != null_hash)
 		  {
-			  auto it = m_aliases_to_txid.find(alias);
-			  if (it != m_aliases_to_txid.end())
-			  {
-				  LOG_ERROR("the same alias " << alias << " exists in tx_pool, hash: " << id);
-				  tvc.m_verifivation_failed = true;
-				  tvc.m_added_to_pool = false;
-				  return false;
-			  }
-			  m_aliases_to_txid[alias] = id;
+			  transaction tx = AUTO_VAL_INIT(tx);
+			  size_t size = 0;
+			  uint64_t  fee = 0;
+			  take_tx(hash, tx, size, fee);
+			  LOG_PRINT_L2("Found alias " << alias <<" in block, delete pool tx with the same alias: " << id );
 		  }
-
         //anyway add this transaction to pool, because it related to block
         auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
         CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
@@ -122,17 +166,11 @@ namespace currency
 	else
     {
 		//check alias repeat or not
-		if(alias.size())
+		if (!add_alias_tx_pair(alias, id))
 		{
-			auto it = m_aliases_to_txid.find(alias);
-			if(it != m_aliases_to_txid.end())
-			{
-				LOG_ERROR("the same alias " << alias <<" exists in tx_pool, hash: " << id);
-				tvc.m_verifivation_failed = true;
-				tvc.m_added_to_pool = false;
-				return false;
-			}
-			m_aliases_to_txid[alias] = id;
+			tvc.m_verifivation_failed = true;
+			tvc.m_added_to_pool = false;
+			return false;
 		}
 
       //update transactions container
@@ -219,22 +257,6 @@ namespace currency
     m_transactions.erase(it);
 	remove_alias_tx_pair(id);
     return true;
-  }
-  //---------------------------------------------------------------------------------
-  bool  tx_memory_pool::remove_alias_tx_pair(crypto::hash id)
-  {
-	  bool bFound = false;
-	  for(auto it = m_aliases_to_txid.begin(); it!= m_aliases_to_txid.end();)
-	  {
-		  crypto::hash hash =  it->second;
-		  if(hash == id)
-		  {
-			  m_aliases_to_txid.erase(it);
-			  bFound = true;
-			  break;
-		  }
-	  }
-	  return bFound;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::on_idle()
