@@ -236,6 +236,9 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
   
+	//avoid some black nodes or nodes with low version
+	const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_block_peer = { "add-block-peer", "Manually add blocked peer" };
+
 	//for Proxy
 	const command_line::arg_descriptor<std::string>        arg_p2p_enable_proxy = {"enable-proxy", "Enable proxy, only Socks5 supported,eg: 127.0.0.1:9050"};
 
@@ -252,7 +255,8 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
-    command_line::add_arg(desc, arg_p2p_add_priority_node);
+	command_line::add_arg(desc, arg_p2p_add_block_peer);
+	command_line::add_arg(desc, arg_p2p_add_priority_node);
     command_line::add_arg(desc, arg_p2p_seed_node);    
     command_line::add_arg(desc, arg_p2p_hide_my_port);   
     command_line::add_arg(desc, arg_p2p_use_only_priority_nodes);       
@@ -426,6 +430,20 @@ namespace nodetool
       }
     }
 
+	//for blocked peers
+	if (command_line::has_arg(vm, arg_p2p_add_block_peer))
+    {       
+	  std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_block_peer);
+      for(const std::string& pr_str: perrs)
+      {
+        nodetool::peerlist_entry pe = AUTO_VAL_INIT(pe);
+        pe.id = crypto::rand<uint64_t>();
+        bool r = parse_peer_from_string(pe.adr, pr_str);
+        CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
+		m_command_line_blocked_peers.push_back(pe);
+      }
+    }
+
     if (command_line::has_arg(vm, arg_p2p_add_priority_node))
     {       
       std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_priority_node);
@@ -559,7 +577,12 @@ namespace nodetool
 
     for(auto& p: m_command_line_peers)
       m_peerlist.append_with_peer_white(p);
-    
+
+	for (auto& p : m_command_line_blocked_peers)
+	{
+		block_ip(p.adr.ip);
+	}
+
     //only in case if we really sure that we have external visible ip
     m_have_address = true;
     m_ip_address = 0;

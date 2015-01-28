@@ -240,6 +240,7 @@ namespace nodetool
     bool m_use_only_priority_peers;
     std::vector<net_address> m_seed_nodes;
     std::list<nodetool::peerlist_entry> m_command_line_peers;
+	std::list<nodetool::peerlist_entry> m_command_line_blocked_peers;
     int64_t m_peer_livetime;
     //keep connections to initiate some interactions
     net_server m_net_server;
