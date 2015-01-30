@@ -1,3 +1,11 @@
+2015, Jan 30: v0.7.0.5
+
+Changelog:
+1. Fixed pool dnsd crash when make alias
+2. Added --add-block-peer command on dnsd to block some nodes with low versions.
+3. Setup three testnet nodes
+4. FIx some minor bugs.
+
 2015, Jan 20: v0.7.0.4
 
 Changelog:
@@ -65,6 +73,7 @@ Project is separated from Cryptonote(forked bytecoin)
   * changed wallet policy for collecting outs for transaction (7-8 times smaller transaction's size)
 * added checkpoints
 * added paramters to munin graph (network estimate hashrate, scratchpad size)
-* added blocking ip addresses that act with network rules violation (mining own blockchain without consider checkpoints, push peerlists with last_seen in futute, invalid blocks e.t.c)
+* added blocking ip addresses that act with network rules violation (mining own blockchain without consider checkpoints, push peerlists with last_seen in futute, invalid blocks 
+e.t.c)
 * cleaned up some network bugs, removing dead connections
 
