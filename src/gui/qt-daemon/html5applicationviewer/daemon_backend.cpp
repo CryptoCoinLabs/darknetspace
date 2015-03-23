@@ -16,9 +16,11 @@ daemon_backend::daemon_backend():m_pview(&m_view_stub),
                                  m_cprotocol(m_ccore, &m_p2psrv),
                                  m_p2psrv(m_cprotocol),
                                  m_rpc_server(m_ccore, m_p2psrv),
-                                 m_rpc_proxy(m_rpc_server),
+								 m_is_lightwallet_enabled(false),
+								 m_rpc_proxy(m_rpc_server, m_http_client, m_daemon_ip_port, m_is_lightwallet_enabled),
                                  m_last_daemon_height(0),
-                                 m_last_wallet_synch_height(0)
+                                 m_last_wallet_synch_height(0),
+								 m_n_rpc_port(0)
 
 {
   m_wallet.reset(new tools::wallet2());
@@ -33,7 +35,7 @@ daemon_backend::~daemon_backend()
   stop();
 }
 
-bool daemon_backend::start(int argc, char* argv[], view::i_view* pview_handler)
+bool daemon_backend::start(int argc, char* argv[],view::i_view* pview_handler)
 {
   m_stop_singal_sent = false;
   if(pview_handler)
@@ -69,10 +71,14 @@ bool daemon_backend::start(int argc, char* argv[], view::i_view* pview_handler)
   command_line::add_arg(desc_cmd_sett, arg_alloc_win_console);
   command_line::add_arg(desc_cmd_sett, arg_html_folder);
 
-  currency::core::init_options(desc_cmd_sett);
-  currency::core_rpc_server::init_options(desc_cmd_sett);
-  nodetool::node_server<currency::t_currency_protocol_handler<currency::core> >::init_options(desc_cmd_sett);
-  currency::miner::init_options(desc_cmd_sett);
+  //if lightwallet enabled, don't run dnsd
+  if (m_is_lightwallet_enabled == false)
+  {
+	  currency::core::init_options(desc_cmd_sett);
+	  currency::core_rpc_server::init_options(desc_cmd_sett);
+	  nodetool::node_server<currency::t_currency_protocol_handler<currency::core> >::init_options(desc_cmd_sett);
+	  currency::miner::init_options(desc_cmd_sett);
+  }
 
   po::options_description desc_options("Allowed options");
   desc_options.add(desc_cmd_only).add(desc_cmd_sett);
@@ -140,11 +146,14 @@ bool daemon_backend::start(int argc, char* argv[], view::i_view* pview_handler)
 
   LOG_PRINT("Module folder: " << argv[0], LOG_LEVEL_0);
 
-  bool res = true;
-  currency::checkpoints checkpoints;
-  res = currency::create_checkpoints(checkpoints);
-  CHECK_AND_ASSERT_MES(res, false, "Failed to initialize checkpoints");
-  m_ccore.set_checkpoints(std::move(checkpoints));
+  if (m_is_lightwallet_enabled == false)
+  {
+	  bool res = true;
+	  currency::checkpoints checkpoints;
+	  res = currency::create_checkpoints(checkpoints);
+	  CHECK_AND_ASSERT_MES(res, false, "Failed to initialize checkpoints");
+	  m_ccore.set_checkpoints(std::move(checkpoints));
+  }
 
   m_main_worker_thread = std::thread([this, vm](){main_worker(vm);});
 
@@ -190,53 +199,57 @@ void daemon_backend::main_worker(const po::variables_map& vm)
   dsi.difficulty = "---";
   m_pview->update_daemon_status(dsi);
 
-  //initialize objects
-  LOG_PRINT_L0("Initializing p2p server...");
-  dsi.text_state = "Initializing p2p server";
-  m_pview->update_daemon_status(dsi);
-  bool res = m_p2psrv.init(vm);
-  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize p2p server.");
-  LOG_PRINT_L0("P2p server initialized OK on port: " << m_p2psrv.get_this_peer_port());
+  //lightwallet, don't run dnsd
+  if (m_is_lightwallet_enabled == false)
+  {
+	  //initialize objects
+	  LOG_PRINT_L0("Initializing p2p server...");
+	  dsi.text_state = "Initializing p2p server";
+	  m_pview->update_daemon_status(dsi);
+	  bool res = m_p2psrv.init(vm);
+	  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize p2p server.");
+	  LOG_PRINT_L0("P2p server initialized OK on port: " << m_p2psrv.get_this_peer_port());
 
-  //LOG_PRINT_L0("Starting UPnP");
-  //upnp_helper.run_port_mapping_loop(p2psrv.get_this_peer_port(), p2psrv.get_this_peer_port(), 20*60*1000);
+	  //LOG_PRINT_L0("Starting UPnP");
+	  //upnp_helper.run_port_mapping_loop(p2psrv.get_this_peer_port(), p2psrv.get_this_peer_port(), 20*60*1000);
 
-  LOG_PRINT_L0("Initializing currency protocol...");
-  dsi.text_state = "Initializing currency protocol";
-  m_pview->update_daemon_status(dsi);
-  res = m_cprotocol.init(vm);
-  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize currency protocol.");
-  LOG_PRINT_L0("Currency protocol initialized OK");
+	  LOG_PRINT_L0("Initializing currency protocol...");
+	  dsi.text_state = "Initializing currency protocol";
+	  m_pview->update_daemon_status(dsi);
+	  res = m_cprotocol.init(vm);
+	  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize currency protocol.");
+	  LOG_PRINT_L0("Currency protocol initialized OK");
 
-  LOG_PRINT_L0("Initializing core rpc server...");
-  dsi.text_state = "Initializing core rpc server";
-  m_pview->update_daemon_status(dsi);
-  res = m_rpc_server.init(vm);
-  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core rpc server.");
-  LOG_PRINT_GREEN("Core rpc server initialized OK on port: " << m_rpc_server.get_binded_port(), LOG_LEVEL_0);
+	  LOG_PRINT_L0("Initializing core rpc server...");
+	  dsi.text_state = "Initializing core rpc server";
+	  m_pview->update_daemon_status(dsi);
+	  res = m_rpc_server.init(vm);
+	  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core rpc server.");
+	  LOG_PRINT_GREEN("Core rpc server initialized OK on port: " << m_rpc_server.get_binded_port(), LOG_LEVEL_0);
 
-  //initialize core here
-  LOG_PRINT_L0("Initializing core...");
-  dsi.text_state = "Initializing core";
-  m_pview->update_daemon_status(dsi);
-  res = m_ccore.init(vm);
-  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core");
-  LOG_PRINT_L0("Core initialized OK");
+	  //initialize core here
+	  LOG_PRINT_L0("Initializing core...");
+	  dsi.text_state = "Initializing core";
+	  m_pview->update_daemon_status(dsi);
+	  res = m_ccore.init(vm);
+	  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core");
+	  LOG_PRINT_L0("Core initialized OK");
 
-  LOG_PRINT_L0("Starting core rpc server...");
-  dsi.text_state = "Starting core rpc server";
-  m_pview->update_daemon_status(dsi);
-     
-  res = m_rpc_server.run(2, false);
-  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core rpc server.");
-  LOG_PRINT_L0("Core rpc server started ok");
+	  LOG_PRINT_L0("Starting core rpc server...");
+	  dsi.text_state = "Starting core rpc server";
+	  m_pview->update_daemon_status(dsi);
 
-  LOG_PRINT_L0("Starting p2p net loop...");
-  dsi.text_state = "Starting network loop";
-  m_pview->update_daemon_status(dsi);
-  res = m_p2psrv.run(false);
-  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to run p2p loop.");
-  LOG_PRINT_L0("p2p net loop stopped");
+	  res = m_rpc_server.run(2, false);
+	  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to initialize core rpc server.");
+	  LOG_PRINT_L0("Core rpc server started ok");
+
+	  LOG_PRINT_L0("Starting p2p net loop...");
+	  dsi.text_state = "Starting network loop";
+	  m_pview->update_daemon_status(dsi);
+	  res = m_p2psrv.run(false);
+	  CHECK_AND_ASSERT_AND_SET_GUI(res, void(), "Failed to run p2p loop.");
+	  LOG_PRINT_L0("p2p net loop stopped");
+  }
 
   //go to monitoring view loop
   loop();
@@ -253,58 +266,62 @@ void daemon_backend::main_worker(const po::variables_map& vm)
   }
   CRITICAL_REGION_END();
 
-  LOG_PRINT_L0("Stopping core p2p server...");
-  dsi.text_state = "Stopping p2p network server";
-  m_pview->update_daemon_status(dsi);
-  m_p2psrv.send_stop_signal();
-  m_p2psrv.timed_wait_server_stop(10);
+  //lightwallet, don't run dnsd
+  if (m_is_lightwallet_enabled == false)
+  {
+	  LOG_PRINT_L0("Stopping core p2p server...");
+	  dsi.text_state = "Stopping p2p network server";
+	  m_pview->update_daemon_status(dsi);
+	  m_p2psrv.send_stop_signal();
+	  m_p2psrv.timed_wait_server_stop(10);
 
-  //stop components
-  LOG_PRINT_L0("Stopping core rpc server...");
-  dsi.text_state = "Stopping rpc network server";
-  m_pview->update_daemon_status(dsi);
+	  //stop components
+	  LOG_PRINT_L0("Stopping core rpc server...");
+	  dsi.text_state = "Stopping rpc network server";
+	  m_pview->update_daemon_status(dsi);
 
-  m_rpc_server.send_stop_signal();
-  m_rpc_server.timed_wait_server_stop(5000);
+	  m_rpc_server.send_stop_signal();
+	  m_rpc_server.timed_wait_server_stop(5000);
 
-  //deinitialize components
+	  //deinitialize components
 
-  LOG_PRINT_L0("Deinitializing core...");
-  dsi.text_state = "Deinitializing core";
-  m_pview->update_daemon_status(dsi);
-  m_ccore.deinit();
-
-
-  LOG_PRINT_L0("Deinitializing rpc server ...");
-  dsi.text_state = "Deinitializing rpc server";
-  m_pview->update_daemon_status(dsi);
-  m_rpc_server.deinit();
+	  LOG_PRINT_L0("Deinitializing core...");
+	  dsi.text_state = "Deinitializing core";
+	  m_pview->update_daemon_status(dsi);
+	  m_ccore.deinit();
 
 
-  LOG_PRINT_L0("Deinitializing currency_protocol...");
-  dsi.text_state = "Deinitializing currency_protocol";
-  m_pview->update_daemon_status(dsi);
-  m_cprotocol.deinit();
+	  LOG_PRINT_L0("Deinitializing rpc server ...");
+	  dsi.text_state = "Deinitializing rpc server";
+	  m_pview->update_daemon_status(dsi);
+	  m_rpc_server.deinit();
 
 
-  LOG_PRINT_L0("Deinitializing p2p...");
-  dsi.text_state = "Deinitializing p2p";
-  m_pview->update_daemon_status(dsi);
+	  LOG_PRINT_L0("Deinitializing currency_protocol...");
+	  dsi.text_state = "Deinitializing currency_protocol";
+	  m_pview->update_daemon_status(dsi);
+	  m_cprotocol.deinit();
 
-  m_p2psrv.deinit();
+	  LOG_PRINT_L0("Deinitializing p2p...");
+	  dsi.text_state = "Deinitializing p2p";
+	  m_pview->update_daemon_status(dsi);
 
-  m_ccore.set_currency_protocol(NULL);
-  m_cprotocol.set_p2p_endpoint(NULL);
+	  m_p2psrv.deinit();
 
-  LOG_PRINT("Node stopped.", LOG_LEVEL_0);
-  dsi.text_state = "Node stopped";
-  m_pview->update_daemon_status(dsi);
+	  m_ccore.set_currency_protocol(NULL);
+	  m_cprotocol.set_p2p_endpoint(NULL);
 
+	  LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+	  dsi.text_state = "Node stopped";
+	  m_pview->update_daemon_status(dsi);
+  }
   m_pview->on_backend_stopped();
 }
 
 bool daemon_backend::enable_proxy(bool bEnabled, std::string ip_address, short port)
 {
+	if (m_is_lightwallet_enabled) return false;
+
 	std::string ip_set;
 	int port_set = 0;
 	bool bOldEnabled = m_p2psrv.get_proxy_status(ip_set, port_set);
@@ -322,11 +339,27 @@ bool daemon_backend::test_proxy(const std::string ip_address, const int port, st
 	return Socks5(ip_address, port, err);
 }
 
+bool daemon_backend::check_connection()
+{
+	if (m_http_client.is_connected())
+		return true;
+
+	return m_http_client.connect(m_str_rpc_ip, std::to_string(m_n_rpc_port), WALLET_RCP_CONNECTION_TIMEOUT);
+}
+
 bool daemon_backend::update_state_info(uint64_t &state)
 {
   view::daemon_status_info dsi = AUTO_VAL_INIT(dsi);
   dsi.difficulty = "---";
   currency::COMMAND_RPC_GET_INFO::response inf = AUTO_VAL_INIT(inf);
+
+  if (m_is_lightwallet_enabled && !check_connection())
+  {
+	  dsi.text_state = "connecting remote rpc server";
+	  m_pview->update_daemon_status(dsi);
+	  LOG_ERROR("Failed to call connect to remote rpc server");
+	  return false;
+  }
   if(!m_rpc_proxy.get_info(inf))
   {
     dsi.text_state = "get_info failed";
@@ -380,7 +413,6 @@ bool daemon_backend::update_state_info(uint64_t &state)
     }
   }
 
-
   m_last_daemon_height = dsi.height = inf.height;
 
   m_pview->update_daemon_status(dsi);
@@ -391,6 +423,7 @@ bool daemon_backend::update_wallets()
 {
 	CRITICAL_REGION_LOCAL(m_wallet_lock);
 	view::wallet_status_info wsi = AUTO_VAL_INIT(wsi);
+	size_t fetched_block = 0;
 
 	if (m_wallet->get_wallet_path().size())
 	{
@@ -427,11 +460,11 @@ bool daemon_backend::update_wallets()
 				LOG_PRINT_L0("Failed to refresh wallet, unknown exception");
 				return false;
 			}
-			m_last_wallet_synch_height = m_ccore.get_current_blockchain_height();
-			wsi.wallet_state = view::wallet_status_info::wallet_state_ready;
-			m_pview->update_wallet_status(wsi);
 
-					
+			m_last_wallet_synch_height = m_wallet->get_blockchain_current_height();
+
+			wsi.wallet_state = view::wallet_status_info::wallet_state_ready;
+			m_pview->update_wallet_status(wsi);					
 		}
 
 		// scan for unconfirmed trasactions
@@ -475,6 +508,20 @@ void daemon_backend::loop()
   }
 }
 
+void daemon_backend::init_wallet_remote_dnsd()
+{
+	std::string rpc_ip_port;
+	if (m_is_lightwallet_enabled && m_str_rpc_ip.size())
+	{
+		rpc_ip_port = m_daemon_ip_port;
+	}
+	else
+	{
+		rpc_ip_port = std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port());
+	}
+	return m_wallet->init(rpc_ip_port);
+}
+
 bool daemon_backend::open_wallet(const std::string& path, const std::string& password)
 {
   CRITICAL_REGION_LOCAL(m_wallet_lock);
@@ -497,7 +544,7 @@ bool daemon_backend::open_wallet(const std::string& path, const std::string& pas
     return false;
   }
 
-  m_wallet->init(std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port()));
+  init_wallet_remote_dnsd();
   update_wallet_info();
 
   view::wallet_recent_transfers t(true);
@@ -536,6 +583,7 @@ bool daemon_backend::load_recent_transfers()
   view::transfers_array tr_hist;
   m_wallet->get_recent_transfers_history(tr_hist.history, 0, 1000);
   m_wallet->get_unconfirmed_transfers(tr_hist.unconfirmed);
+
   //workaround for missed fee
   for (auto & he : tr_hist.history)
     if (!he.fee && !currency::is_coinbase(he.tx)) 
@@ -569,8 +617,8 @@ bool daemon_backend::generate_wallet(const std::string& path, const std::string&
     m_wallet->callback(this);
     return false;
   }
-
-  m_wallet->init(std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port()));
+  init_wallet_remote_dnsd();
+ 
   update_wallet_info();
   m_last_wallet_synch_height = 0;
 
@@ -605,6 +653,11 @@ bool daemon_backend::close_wallet()
 bool daemon_backend::get_aliases(view::alias_set& al_set)
 {
   currency::COMMAND_RPC_GET_ALL_ALIASES::response aliases = AUTO_VAL_INIT(aliases);
+  if (m_is_lightwallet_enabled && !check_connection())
+  {
+	  m_pview->show_msg_box("Failed to send transaction: no connection to remote rpc server.");
+	  return false;
+  }
   if (m_rpc_proxy.get_aliases(aliases) && aliases.status == CORE_RPC_STATUS_OK)
   {
     al_set.aliases = aliases.aliases;
@@ -620,8 +673,13 @@ bool daemon_backend::get_aliases(view::alias_set& al_set)
 //------------------------------------------------------------------------------------------------------------------
 bool daemon_backend::is_alias_exist(const std::string& alias)
 {
+	if (m_is_lightwallet_enabled && !check_connection())
+	{
+		m_pview->show_msg_box("Failed to send transaction: no connection to remote rpc server.");
+		return true;
+	}
 	currency::COMMAND_RPC_GET_ALIAS_DETAILS::response res = AUTO_VAL_INIT(res);
-	bool r = m_rpc_proxy.get_alias_info(alias,res);
+	bool r = m_rpc_proxy.get_alias_info(alias, res);
 
 	if(r == true && res.status == "Alias not found")
 		return false;
@@ -750,6 +808,12 @@ bool daemon_backend::send_tx(const view::transfer_params& tp, currency::transact
     }
 	dsts.push_back(currency::tx_destination_entry());
 	dsts.back().amount = amount;
+	
+	if (m_is_lightwallet_enabled && !check_connection())
+	{
+		m_pview->show_msg_box("Failed to send transaction: no connection to remote rpc server.");
+		return false;
+	}
     if (!tools::get_transfer_address(d.address, dsts.back().addr, m_rpc_proxy))
     {
       m_pview->show_msg_box("Failed to send transaction: invalid address");

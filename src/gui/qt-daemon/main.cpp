@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
     viewer.setOrientation(Html5ApplicationViewer::ScreenOrientationAuto);
     viewer.showExpanded();
     viewer.setWindowTitle("DarkNetSpace");
+	viewer.load_config();
 	
     if(!viewer.start_backend(argc, argv))
       return false;

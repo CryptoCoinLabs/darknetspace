@@ -37,11 +37,19 @@ struct gui_config
   std::string m_str_language_id;
   std::string m_str_default_exchange;
 
+  bool is_lightwallet_enabled;
+  std::string m_str_rpc_ip;// for light wallet mode,remote dnsd ip
+  uint32_t m_n_rpc_port;// for light wallet mode,remote dnsd port
+
+  //not save to json file
+  bool is_loaded;
+
   gui_config()
   {
 	  is_auto_load_default_wallet = is_save_default_wallets_password = is_proxy_enabled = 0;
-	  m_n_proxy_port = is_proxy_need_auth = is_tor_enabled = m_n_tor_mode = 0;
+	  m_n_proxy_port = is_proxy_need_auth = is_tor_enabled = m_n_tor_mode = m_n_rpc_port = is_lightwallet_enabled = is_loaded = 0;
   }
+
 
   BEGIN_KV_SERIALIZE_MAP()
     KV_SERIALIZE(wallets_last_used_dir)
@@ -60,5 +68,8 @@ struct gui_config
     KV_SERIALIZE(m_str_language_id)
     KV_SERIALIZE(m_str_default_exchange)
 	KV_SERIALIZE(m_vect_all_used_wallets)
+	KV_SERIALIZE(is_lightwallet_enabled)
+	KV_SERIALIZE(m_str_rpc_ip)
+	KV_SERIALIZE(m_n_rpc_port)
   END_KV_SERIALIZE_MAP()
 };

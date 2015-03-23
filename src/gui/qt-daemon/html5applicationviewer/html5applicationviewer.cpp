@@ -144,17 +144,42 @@ Html5ApplicationViewer::Html5ApplicationViewer(QWidget *parent)
     setLayout(layout);
 }
 
+bool Html5ApplicationViewer::is_lightwallet_enabled()
+{
+	if (!m_config.is_loaded)
+	{
+		return load_config();
+	}
+	else
+	{
+		return m_config.is_lightwallet_enabled;
+	}
+}
+
+bool Html5ApplicationViewer::load_config()
+{
+	bool ok = false;
+	ok = epee::serialization::load_t_from_json_file(m_config, tools::get_default_data_dir() + "/" + GUI_CONFIG_FILENAME);
+
+	//can't open config file, create a config file
+	if (!ok) store_config();
+	m_config.is_loaded = true;
+
+	m_backend.m_is_lightwallet_enabled = m_config.is_lightwallet_enabled;
+	m_backend.m_str_rpc_ip = m_config.m_str_rpc_ip;
+	m_backend.m_n_rpc_port = m_config.m_n_rpc_port;
+	m_backend.m_daemon_ip_port = m_config.m_str_rpc_ip + ":" + std::to_string(m_config.m_n_rpc_port);
+	return ok;
+}
+
 bool Html5ApplicationViewer::init_config()
-{  
-  bool ok = false;
-  ok = epee::serialization::load_t_from_json_file(m_config, m_backend.get_config_folder() + "/" + GUI_CONFIG_FILENAME);
- 
-  if (!ok)
-  {
-	  //can't open config file, create a config file
-	  store_config();
-	  return true;
-  }
+{   
+	bool ok = false;
+	if (!m_config.is_loaded)
+	{
+		load_config();
+	}
+
   update_ui_config(m_config);
   if (!m_config.wallets_last_used_dir.size())
   {
@@ -212,7 +237,7 @@ bool Html5ApplicationViewer::init_config()
 
 bool Html5ApplicationViewer::store_config()
 {
-	epee::serialization::store_t_to_json_file(m_config, m_backend.get_config_folder() + "/" + GUI_CONFIG_FILENAME);
+	epee::serialization::store_t_to_json_file(m_config, tools::get_default_data_dir() + "/" + GUI_CONFIG_FILENAME);
   return true;
 }
 
@@ -425,8 +450,8 @@ bool Html5ApplicationViewer::show_msg_box(const std::string& message)
 }
 
 bool Html5ApplicationViewer::start_backend(int argc, char* argv[])
-{
-  return m_backend.start(argc, argv, this);
+{	
+  return m_backend.start(argc, argv,this);
 }
 
 bool Html5ApplicationViewer::update_wallet_status(const view::wallet_status_info& wsi)

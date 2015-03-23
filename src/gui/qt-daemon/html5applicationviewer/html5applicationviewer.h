@@ -60,6 +60,8 @@ public slots:
     QString request_uri(const QString& url_str, const QString& params, const QString& callbackname);    
     QString request_aliases();
     bool init_config();
+	bool load_config();
+	bool is_lightwallet_enabled();
 	void trayIconActivated(QSystemTrayIcon::ActivationReason reason);
 
 private:
@@ -68,7 +70,7 @@ private:
     void closeEvent(QCloseEvent *event);
 	void changeEvent(QEvent *e);
 
-    bool store_config();
+	bool store_config();
 	bool enable_proxy(bool bEnabled, const std::string& proxy_ip, const int & proxy_port);
 
     //------- i_view ---------

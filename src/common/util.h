@@ -7,7 +7,7 @@
 #include <mutex>
 #include <system_error>
 #include <boost/filesystem.hpp>
-
+#include <stdarg.h>
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "misc_language.h"
@@ -20,6 +20,7 @@ namespace tools
   std::string get_current_username();
   std::string get_os_version_string();
   void get_clear_json(std::string &str);
+  std::string format(const char *fmt, ...);
   int string_replace(std::string &strBase, std::string strSrc, std::string strDes);
 
   bool create_directories_if_necessary(const std::string& path);

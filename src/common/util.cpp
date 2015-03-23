@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <cstdio>
-
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -22,6 +21,20 @@ using namespace epee;
 namespace tools
 {
   std::function<void(void)> signal_handler::m_handler;
+
+  std::string format(const char *fmt, ...)
+  {
+	  va_list ap;
+	  va_start(ap, fmt);
+
+	  const size_t SIZE = 512;
+	  char buffer[SIZE] = { 0 };
+	  vsnprintf(buffer, SIZE, fmt, ap);
+
+	  va_end(ap);
+
+	  return std::string(buffer);
+  }
 
   int string_replace(std::string &strBase, std::string strSrc, std::string strDes)  
   {  

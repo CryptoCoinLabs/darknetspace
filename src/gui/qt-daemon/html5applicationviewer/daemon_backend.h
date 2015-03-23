@@ -35,6 +35,11 @@ BOOST_CLASS_VERSION(nodetool::node_server<currency::t_currency_protocol_handler<
 class daemon_backend: public tools::i_wallet2_callback
 {
 public:
+	bool m_is_lightwallet_enabled;
+	std::string m_str_rpc_ip;
+	uint32_t m_n_rpc_port;
+	std::string m_daemon_ip_port;
+public:
   daemon_backend();
   ~daemon_backend();
   bool start(int argc, char* argv[], view::i_view* pview_handler);
@@ -51,6 +56,8 @@ public:
   bool is_alias_exist(const std::string& alias);
   bool enable_proxy(bool bEnabled, std::string ip_address = "127.0.0.1", short port = 9050);
   bool test_proxy(const std::string ip_address, const int port, std::string & err);
+  void init_wallet_remote_dnsd();
+  bool check_connection();
 
   std::string get_config_folder();
 
@@ -68,8 +75,7 @@ private:
   bool update_wallet_info();
   bool load_recent_transfers();
   bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
-
-
+  
   
   //----- tools::i_wallet2_callback ------
   virtual void on_new_block(uint64_t height, const currency::block& block);
@@ -85,8 +91,8 @@ private:
   std::atomic<uint64_t> m_last_daemon_height;
   std::atomic<uint64_t> m_last_wallet_synch_height;
   std::string m_data_dir;
+  epee::net_utils::http::http_simple_client m_http_client;
 
-  
 
   //daemon stuff
   currency::core m_ccore;

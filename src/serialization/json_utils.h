@@ -16,4 +16,15 @@ std::string dump_json(T &v)
   return ostr.str();
 };
 
+template<class T>
+T & dump_object(std::string &json)
+{
+  std::stringstream ostr;
+  ostr << json;
+  json_archive<false> oar(ostr);
+  assert(serialization::serialize(oar, const_cast<T&>(v)));
+  return v;
+};
+
+
 } // namespace serialization
