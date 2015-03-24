@@ -30,6 +30,77 @@ using namespace currency;
 
 DISABLE_VS_WARNINGS(4267)
 
+namespace {
+	std::string appendPath(const std::string& path, const std::string& fileName) {
+		std::string result = path;
+		if (!result.empty()) {
+			result += '/';
+		}
+
+		result += fileName;
+		return result;
+	}
+}
+
+#define CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER 1
+
+class BlockCacheSerializer {
+
+public:
+	BlockCacheSerializer(blockchain_storage& bs, const crypto::hash lastBlockHash) :
+		m_bs(bs), m_lastBlockHash(lastBlockHash), m_loaded(false) {}
+
+	template<class Archive> void serialize(Archive& ar, unsigned int version) {
+
+		// ignore old versions, do rebuild
+		if (version < CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER)
+			return;
+
+		std::string operation;
+		if (Archive::is_loading::value) {
+			operation = "- loading ";
+			crypto::hash blockHash;
+			ar & blockHash;
+
+			if (blockHash != m_lastBlockHash) {
+				return;
+			}
+
+		}
+		else {
+			operation = "- saving ";
+			ar & m_lastBlockHash;
+		}
+
+		LOG_PRINT_L0(operation << "block index...");
+		ar & m_bs.m_blockIndex;
+
+		LOG_PRINT_L0(operation << "transaction map...");
+		ar & m_bs.m_transactionMap;
+
+		LOG_PRINT_L0(operation << "spend keys...");
+		ar & m_bs.m_spent_keys;
+
+		LOG_PRINT_L0(operation << "outputs...");
+		ar & m_bs.m_outputs;
+
+		m_loaded = true;
+	}
+
+	bool loaded() const {
+		return m_loaded;
+	}
+
+private:
+
+	bool m_loaded;
+	blockchain_storage& m_bs;
+	crypto::hash m_lastBlockHash;
+};
+}
+
+BOOST_CLASS_VERSION(cryptonote::BlockCacheSerializer, CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER)
+
 //------------------------------------------------------------------
 blockchain_storage::blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), 
                                                                 m_current_block_cumul_sz_limit(0), 
@@ -82,12 +153,26 @@ void blockchain_storage::fill_addr_to_alias_dict()
   }
 }
 //------------------------------------------------------------------
-bool blockchain_storage::init(const std::string& config_folder)
+bool blockchain_storage::init(const std::string& config_folder, bool load_existing)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  if (!config_folder.empty() && !tools::create_directories_if_necessary(config_folder)) 
+  {
+	  LOG_ERROR("Failed to create data directory: " << m_config_folder);
+	  return false;
+  }
+
   m_config_folder = config_folder;
-  LOG_PRINT_L0("Loading blockchain...");
-  const std::string filename = m_config_folder + "/" CURRENCY_BLOCKCHAINDATA_FILENAME;
+
+  if (!m_blocks.open(appendPath(config_folder, CURRENCY_BLOCKS_DATA_FILENAME), appendPath(config_folder, CURRENCY_BLOCKS_INDEX_FILENAME), 1024)) {
+	  return false;
+  }
+
+  if (load_existing) {
+	  LOG_PRINT_L0("Loading blockchain...");
+
+ const std::string filename = appendPath(m_config_folder,CURRENCY_BLOCKCHAINDATA_FILENAME);
   if(!tools::unserialize_obj_from_file(*this, filename))
   {
       LOG_PRINT_L0("Can't load blockchain storage from file, generating genesis block.");
@@ -147,9 +232,22 @@ bool blockchain_storage::store_blockchain()
   return true;
 }
 //------------------------------------------------------------------
+bool blockchain_storage::storeCache() {
+	CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+	LOG_PRINT_L0("Saving blockchain...");
+	BlockCacheSerializer ser(*this, get_tail_id());
+	if (!tools::serialize_obj_to_file(ser, appendPath(m_config_folder, m_currency.blocksCacheFileName()))) {
+		LOG_ERROR("Failed to save blockchain cache");
+		return false;
+	}
+
+	return true;
+}
+//------------------------------------------------------------------
 bool blockchain_storage::deinit()
 {
-  return store_blockchain();
+	return storeCache();
 }
 //------------------------------------------------------------------
 bool blockchain_storage::pop_block_from_blockchain()
