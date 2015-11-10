@@ -920,7 +920,7 @@ bool blockchain_storage::complete_timestamps_vector(uint64_t start_top_height, s
 
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   size_t need_elements = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - timestamps.size();
-  CHECK_AND_ASSERT_MES(start_top_height < m_blocks.size(), false, "internal error: passed start_height = " << start_top_height << " not less then m_blocks.size()=" << m_blocks.size());
+  CHECK_AND_ASSERT_MES(start_top_height <= m_blocks.size(), false, "internal error: passed start_height = " << start_top_height << " not less then m_blocks.size()=" << m_blocks.size());
   size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements:0;
   do
   {

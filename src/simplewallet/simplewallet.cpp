@@ -205,15 +205,35 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
   m_cmd_binder.set_handler("change_password", boost::bind(&simple_wallet::change_password, this, _1), "change_password <old_password> <new_password>");
   m_cmd_binder.set_handler("make_alias", boost::bind(&simple_wallet::make_alias, this, _1), "pay 101 DNC to miners to make an alias. make_alias <alias>  [comment] [viewkey]");
+  m_cmd_binder.set_handler("delete_unconfirmed_tx", boost::bind(&simple_wallet::delete_unconfirmed_tx, this, _1), "delete_unconfirmed_tx <txid>, note: delete unconfirmed transaction, txid could be 'all', it means to delete all unconfirmed transactions.");
 
 }
+bool simple_wallet::delete_unconfirmed_tx(const std::vector<std::string> &args)
+{
+	if (args.size() != 1)
+	{
+		fail_msg_writer() << "usage: delete_unconfirmed_tx <txid>\n 'all' means to delete all unconfirmed transactions.";
+		return true;
+	}
+	std::string txid = args[0]; 
+	CHECK_AND_ASSERT_MES(!txid.empty(), false, "txid cannot be empty");
 
+	if (m_wallet->delete_unconfirmed_tx(txid))
+	{
+		success_msg_writer() << "txid: " << txid << ", transaction deleted";
+	}
+	else
+	{
+		fail_msg_writer() << "to delete " << txid << " transaction failed.";
+	}
+	return true;
+}
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::change_password(const std::vector<std::string> &args)
 {
 	if(args.size() != 2) 
 	{
-		fail_msg_writer() << "use: change_password <old_password> <new_password>";
+		fail_msg_writer() << "usage: change_password <old_password> <new_password>";
 		return true;
 	}
 
@@ -234,7 +254,7 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
 {
   if(args.size() != 1) 
   {
-    fail_msg_writer() << "use: set_log <log_level_number_0-4>";
+    fail_msg_writer() << "usage: set_log <log_level_number_0-4>";
     return true;
   }
   uint16_t l = 0;

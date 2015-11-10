@@ -144,6 +144,7 @@ namespace tools
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
 	uint64_t get_incoming_tx_size()const { return m_transfer_history.size(); }
 
+	bool delete_unconfirmed_tx(const std::string & txid);
 	static void process_new_block(currency::NOTIFY_NEW_BLOCK::request & req);
 
     template <class t_archive>
@@ -181,7 +182,7 @@ namespace tools
     void pull_blocks(size_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, size_t fake_outputs_count, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
-    void process_unconfirmed(const currency::transaction& tx, std::string& recipient, std::string& recipient_alias);
+	void process_unconfirmed(const currency::transaction& tx, std::string& recipient, std::string& recipient_alias);
     void add_sent_unconfirmed_tx(const currency::transaction& tx, uint64_t change_amount, std::string recipient);
     void update_current_tx_limit();
     void prepare_wti(wallet_rpc::wallet_transfer_info& wti, uint64_t height, uint64_t timestamp, const currency::transaction& tx, uint64_t amount, const money_transfer2_details& td);

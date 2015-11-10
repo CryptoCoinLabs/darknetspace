@@ -63,6 +63,7 @@ namespace currency
     bool open_wallet(const std::string &wallet_file, const std::string& password);
     bool close_wallet();
 
+	bool delete_unconfirmed_tx(const std::vector<std::string> &args);
 	bool change_password(const std::vector<std::string> &args);
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);

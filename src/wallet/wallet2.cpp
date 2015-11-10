@@ -261,6 +261,43 @@ void wallet2::handle_money_spent2(const currency::block& b, const currency::tran
     m_callback->on_transfer2(wti);
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::delete_unconfirmed_tx(const std::string & txid)
+{
+	crypto::hash id;
+	std::string tx_hash = txid;
+	std::transform(tx_hash.begin(), tx_hash.end(), tx_hash.begin(), tolower);
+	if (tx_hash == std::string("all"))
+	{
+		m_unconfirmed_txs.clear();
+		return true;
+	}
+
+	bool bReturn = parse_payment_id_from_hex_str(tx_hash, id);
+	if (bReturn == false)
+	{
+		LOG_PRINT_RED_L0("txid: " << txid << " not valid.");
+		return false;
+	}
+
+	/*
+	std::string hash_bin;
+	string_tools::parse_hexstr_to_binbuff(txid, hash_bin);
+	id = *reinterpret_cast<const crypto::hash*>(hash_bin.c_str());
+	*/
+
+	auto unconf_it = m_unconfirmed_txs.find(id);
+	if (unconf_it != m_unconfirmed_txs.end())
+	{
+		m_unconfirmed_txs.erase(unconf_it);
+		return true;
+	}
+	else
+	{
+		LOG_PRINT_RED_L0("txid: " << txid << " not found in unconfirmed transactions set.");
+		return false;
+	}
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_unconfirmed(const currency::transaction& tx, std::string& recipient, std::string& recipient_alias)
 {
   auto unconf_it = m_unconfirmed_txs.find(get_transaction_hash(tx));
