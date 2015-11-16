@@ -440,7 +440,6 @@ namespace currency
       return false;
     }
 
-
     block b = AUTO_VAL_INIT(b);
     if(!parse_and_validate_block_from_blob(block_blob, b))
     {

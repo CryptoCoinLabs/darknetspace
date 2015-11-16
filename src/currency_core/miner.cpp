@@ -108,7 +108,7 @@ namespace currency
   bool miner::request_block_template()
   {
     block bl = AUTO_VAL_INIT(bl);
-    wide_difficulty_type di = AUTO_VAL_INIT(di);
+    wide_difficulty_type di(0);
     uint64_t height = AUTO_VAL_INIT(height);
     currency::blobdata extra_nonce = PROJECT_VERSION_LONG "|"; 
     if(m_extra_messages.size() && m_config.current_extra_message_index < m_extra_messages.size())

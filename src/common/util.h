@@ -41,6 +41,17 @@ namespace tools
     return k;
   }
 
+  inline std::string appendPath(const std::string& path, const std::string& fileName)
+  {
+	  std::string result = path;
+	  if (!result.empty()) 
+	  {
+		  result += '/';
+	  }
+
+	  result += fileName;
+	  return result;
+  }
 
   class signal_handler
   {

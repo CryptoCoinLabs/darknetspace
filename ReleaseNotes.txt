@@ -1,3 +1,10 @@
+2015, Nov 16: v0.7.5.0
+
+Changelog:
+1. Store mode changed, using swapped vector and index to store blocks. 
+Thus, DarkNetSpace will not ocuppy your all memory any more.
+2. FIx some minor bugs.
+
 2015, Jan 30: v0.7.0.5
 
 Changelog:

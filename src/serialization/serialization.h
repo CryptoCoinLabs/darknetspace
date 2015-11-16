@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <boost/type_traits/is_integral.hpp>
+#include <boost/type_traits/integral_constant.hpp>
 
 template <class T>
 struct is_blob_type { typedef boost::false_type type; };
@@ -61,8 +62,8 @@ inline bool do_serialize(Archive &ar, T &v)
 #define BEGIN_SERIALIZE_OBJECT() \
   template <bool W, template <bool> class Archive> bool do_serialize(Archive<W> &ar) { ar.begin_object(); bool r = do_serialize_object(ar); ar.end_object(); return r; } \
   template <bool W, template <bool> class Archive> bool do_serialize_object(Archive<W> &ar){
-#define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec) ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
 
+#define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec) ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
 #define END_SERIALIZE() return true;}
 
 
@@ -79,8 +80,10 @@ inline bool do_serialize(Archive &ar, T &v)
     if (!r || !ar.stream().good()) return false; \
   } while(0);
 #define FIELDS(f) \
+  do { \
     bool r = ::do_serialize(ar, f); \
-    if (!r || !ar.stream().good()) return false;
+    if (!r || !ar.stream().good()) return false; \
+  } while(0);
 #define FIELD(f) \
   do { \
     ar.tag(#f); \
@@ -93,6 +96,13 @@ inline bool do_serialize(Archive &ar, T &v)
     ar.serialize_varint(f); \
     if (!ar.stream().good()) return false; \
   } while(0);
+#define VARINT_FIELD_N(t, f) \
+  do { \
+    ar.tag(t); \
+    ar.serialize_varint(f); \
+    if (!ar.stream().good()) return false; \
+  } while(0);
+
 
 namespace serialization {
   namespace detail
@@ -103,7 +113,7 @@ namespace serialization {
     }
 
     template <typename T>
-    void prepare_custom_vector_serialization(size_t size, std::vector<T>& vec, const boost::mpl::bool_<false>& /*is_saving*/)
+    void prepare_custom_vector_serialization(size_t size, std::vector<T>& vec, const boost::mpl::bool_<false>& /*is_loading*/)
     {
       vec.resize(size);
     }

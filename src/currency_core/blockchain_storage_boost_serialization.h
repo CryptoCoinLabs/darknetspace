@@ -8,8 +8,7 @@ namespace boost
 {
   namespace serialization
   {
-
-
+	  /*
     template<class archive_t>
     void serialize(archive_t & ar, currency::blockchain_storage::transaction_chain_entry& te, const unsigned int version)
     {
@@ -28,7 +27,7 @@ namespace boost
       }
       ar & te.m_spent_flags;
     }
-
+	
     template<class archive_t>
     void serialize(archive_t & ar, currency::blockchain_storage::block_extended_info& ei, const unsigned int version)
     {
@@ -49,6 +48,20 @@ namespace boost
       ar & ei.already_donated_coins;
       ar & ei.scratch_offset;
     }
+	
+	template<class archive_t>
+	void serialize(archive_t & ar, currency::blockchain_storage::BlockEntry& be, unsigned int version)
+	{
+		ar & *static_cast<block_extended_info *>(&be);
+		ar & be.transactions;
+	}
+
+	template<class archive_t>
+	void serialize(archive_t & ar, currency::BlockIndex& bi, unsigned int version)
+	{
+		ar & biblock;
+		ar & bi.transaction;
+	}*/
 
     template<class archive_t>
     void serialize(archive_t & ar, currency::alias_info_base& ai, const unsigned int version)
@@ -59,5 +72,6 @@ namespace boost
       ar & ai.m_sign;
       ar & ai.m_text_comment;
     }
+
   }
 }

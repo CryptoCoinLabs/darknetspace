@@ -7,11 +7,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
-
+#include "difficulty.h"
+#include <boost/multiprecision/cpp_int.hpp>
 #include "common/int-util.h"
 #include "crypto/hash.h"
 #include "currency_config.h"
-#include "difficulty.h"
+
 
 namespace currency {
 
@@ -73,14 +74,45 @@ namespace currency {
   const boost::multiprecision::uint256_t max128bit(std::numeric_limits<boost::multiprecision::uint128_t>::max());
   const boost::multiprecision::uint512_t max256bit(std::numeric_limits<boost::multiprecision::uint256_t>::max());
   
-  bool check_hash(const crypto::hash &hash, wide_difficulty_type difficulty) {
-    if (difficulty < max64bit){ // if can convert to small difficulty - do it
-      std::uint64_t dl = difficulty.convert_to<std::uint64_t>();
+  boost::multiprecision::uint128_t make_buint128(uint64_t lowpart, uint64_t highpart)
+  {
+	  //load high part
+	  boost::multiprecision::uint128_t x = highpart;
+
+	  //load low part
+	  x = x << 64;
+	  x += x;
+
+	  return x;
+  }
+
+  void split_buint128(const boost::multiprecision::uint128_t & x, uint64_t &lowpart, uint64_t &highpart)
+  {
+	  boost::multiprecision::uint128_t _wdiff = x;
+	  _wdiff = _wdiff >> 64;
+
+	  // high part
+	  highpart = _wdiff.convert_to<uint64_t>();
+
+	  //store low part
+	  _wdiff = x;
+	  _wdiff = _wdiff << 64;
+	  _wdiff = _wdiff >> 64;
+	  lowpart = _wdiff.convert_to<uint64_t>();
+  }
+
+  bool check_hash(const crypto::hash &hash, wide_difficulty_type difficulty) 
+  {
+    if (difficulty < max64bit)
+	{ // if can convert to small difficulty - do it
+	  std::uint64_t dl = (uint64_t)difficulty;
       uint64_t low, high, top, cur;
+
       // First check the highest word, this will most likely fail for a random hash.
       mul(swap64le(((const uint64_t *) &hash)[3]), dl, top, high);
       if (high != 0) 
         return false;
+
       mul(swap64le(((const uint64_t *) &hash)[0]), dl, low, cur);
       mul(swap64le(((const uint64_t *) &hash)[1]), dl, low, high);
       bool carry = cadd(cur, low);
@@ -90,16 +122,21 @@ namespace currency {
       carry = cadc(high, top, carry);
       return !carry;
     }
+
     // fast check
     if (((const uint64_t *) &hash)[3] > 0)
       return false;
+
     // usual slow check
     boost::multiprecision::uint512_t hashVal = 0;
-    for(int i = 1; i < 4; i++) { // highest word is zero
+    for(int i = 1; i < 4; i++) 
+	{ 
+		// highest word is zero
       hashVal |= swap64le(((const uint64_t *) &hash)[3 - i]);
       hashVal << 64;
     }
-    return (hashVal * difficulty > max256bit);
+	boost::multiprecision::uint128_t diff = make_buint128(difficulty.lower(), difficulty.upper());
+	return (hashVal * diff > max256bit);
   }
 
   difficulty_type next_difficulty_old(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
@@ -151,7 +188,6 @@ namespace currency {
       cumulative_difficulties.resize(DIFFICULTY_WINDOW);
     }
 
-
     size_t length = timestamps.size();
     assert(length == cumulative_difficulties.size());
     if (length <= 1) {
@@ -162,10 +198,14 @@ namespace currency {
     sort(timestamps.begin(), timestamps.end());
     size_t cut_begin, cut_end;
     static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW - 2, "Cut length is too large");
-    if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) {
+
+    if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) 
+	{
       cut_begin = 0;
       cut_end = length;
-    } else {
+    } 
+	else 
+	{
       cut_begin = (length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) + 1) / 2;
       cut_end = cut_begin + (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT);
     }
@@ -176,10 +216,13 @@ namespace currency {
     }
     wide_difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     assert(total_work > 0);
-    boost::multiprecision::uint256_t res =  (boost::multiprecision::uint256_t(total_work) * target_seconds + time_span - 1) / time_span;
-    if(res > max128bit)
-	return 0; // to behave like previuos implementation, may be better return max128bit?
-    return res.convert_to<wide_difficulty_type>();
+	wide_difficulty_type res = ((total_work) * target_seconds + time_span - 1) / time_span;
+
+	boost::multiprecision::uint128_t b128 = make_buint128(res.lower(), res.upper());
+	boost::multiprecision::uint256_t b256 = b128;
+	if (b128 > max128bit)
+		return 0; // to behave like previuos implementation, may be better return max128bit?
+    return res;
   }
 
   difficulty_type next_difficulty_old(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties)

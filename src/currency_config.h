@@ -140,7 +140,9 @@
 #define CURRENCY_NAME                                   CURRENCY_NAME_BASE"_testnet"
 #define CURRENCY_NAME_SHORT                             CURRENCY_NAME_SHORT_BASE"_testnet"
 #endif
-
+#define CURRENCY_BLOCKINDEX_FILENAME                    "blockindex.ind"
+#define CURRENCY_BLOCKCACHE_FILENAME                    "blockcache.dat"
+#define CURRENCY_BLOCKS_FILENAME                        "blocks.dat"
 #define CURRENCY_POOLDATA_FILENAME                      "poolstate.bin"
 #define CURRENCY_BLOCKCHAINDATA_FILENAME                "blockchain.bin"
 #define CURRENCY_BLOCKCHAINDATA_TEMP_FILENAME           "blockchain.bin.tmp"
