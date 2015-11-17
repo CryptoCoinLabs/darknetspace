@@ -35,7 +35,7 @@ POD_MAKE_HASHABLE(currency, account_public_address);
 #define CURRENT_TRANSACTION_CHAIN_ENTRY_ARCHIVE_VER     3
 #define CURRENT_BLOCK_EXTENDED_INFO_ARCHIVE_VER         1
 #define CURRENT_BLOCK_ENTRY_ARCHIVE_VER				    1
-#define CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER			1
+#define CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER			2
 
 namespace currency
 {
@@ -49,35 +49,57 @@ namespace currency
 		class BlockCacheSerializer
 		{
 		public:
-			BlockCacheSerializer(blockchain_storage& bs, const crypto::hash lastBlockHash) :
-				m_bs(bs), m_lastBlockHash(lastBlockHash), m_loaded(false) {}
+			BlockCacheSerializer(blockchain_storage& bs, const crypto::hash lastBlockHash, uint64_t nHeight) :
+				m_bs(bs), m_currentLastBlockHash(lastBlockHash), m_nHeight(nHeight), m_storedLastBlockHash(null_hash), m_loaded(false) {}
 
 			template<class Archive> void serialize(Archive& ar, unsigned int version)
 			{
 				// ignore old versions, do rebuild
-				if (version < CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER)
+				if (version < 1)
+				{
+					LOG_PRINT_L0("Wrong version: " << version << " ,at least " << 1 <<", current version: " << CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER);
 					return;
-
+				}
+				uint64_t nHeight = -1;
 				std::string operation;
 				if (Archive::is_loading::value)
 				{
 					operation = "- loading ";
-					crypto::hash blockHash;
-					ar & blockHash;
+					ar & m_storedLastBlockHash;
+					ar & m_nHeight;
 
-					if (blockHash != m_lastBlockHash)
-					{
-						return;
-					}
 				}
 				else
 				{
 					operation = "- saving ";
-					ar & m_lastBlockHash;
+
+					//wrong input height and block id
+					nHeight = m_bs.m_blocks_index.getBlockHeight(m_currentLastBlockHash);
+					if (nHeight != m_nHeight)
+					{
+						LOG_PRINT_L0(operation << "block index error, block id: " << m_currentLastBlockHash << ", height is " << nHeight << ", expect: " << m_nHeight);
+						return;
+					}
+
+					ar & m_currentLastBlockHash;
+					ar & m_nHeight;
+					m_storedLastBlockHash = m_currentLastBlockHash;
 				}
 
 				LOG_PRINT_L0(operation << "block index...");
 				ar & m_bs.m_blocks_index;
+
+				if (Archive::is_loading::value)
+				{
+					//when loading, check the height and last block hash are correct or not
+					nHeight = m_bs.m_blocks_index.getBlockHeight(m_storedLastBlockHash);
+					if (Archive::is_loading::value && nHeight != m_nHeight)
+					{
+						LOG_PRINT_L0(operation << "block index error, stored last block id: " << m_storedLastBlockHash << ", height is " << ( nHeight == -1 ? -1 : nHeight) << ", expect height: " << m_nHeight);
+						m_storedLastBlockHash = null_hash;
+						return;
+					}
+				}
 
 				LOG_PRINT_L0(operation << "transaction map...");
 				ar & m_bs.m_transactions;
@@ -98,18 +120,56 @@ namespace currency
 				ar & m_bs.m_current_block_cumul_sz_limit;
 				ar & m_bs.m_current_pruned_rs_height;
 
+				if (version < CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER && Archive::is_loading::value)
+				{
+					m_loaded = true;
+					return;
+				}
+
+				//simple count checksum
+				uint64_t stored_total_count = 0;
+				uint64_t total_count = m_bs.m_blocks_index.size() + m_bs.m_transactions.size() + m_bs.m_spent_keys.size() + \
+					m_bs.m_outputs.size() + m_bs.m_aliases.size() + m_bs.m_scratchpad.size();
+
+				if (Archive::is_saving::value)
+				{
+					ar & total_count;
+				}
+				else
+				{
+					ar & stored_total_count;
+					if (total_count != stored_total_count)
+					{
+						LOG_PRINT_L0(operation << "block cache error, stored count: " << stored_total_count << ", expect count: " << total_count);
+						return;
+					}
+				}
+
 				m_loaded = true;
 			}
 
-			bool loaded() const {
+			bool loaded() const 
+			{
 				return m_loaded;
+			}
+
+			crypto::hash getStoredLastBlockHash() const
+			{
+				return m_storedLastBlockHash;
+			}
+
+			uint64_t getStoredHeight() const
+			{
+				return m_nHeight;
 			}
 
 		private:
 
 			bool m_loaded;
 			blockchain_storage& m_bs;
-			crypto::hash m_lastBlockHash;
+			crypto::hash m_currentLastBlockHash;
+			crypto::hash m_storedLastBlockHash;
+			uint64_t m_nHeight;
 		};
 
 		struct transaction_chain_entry

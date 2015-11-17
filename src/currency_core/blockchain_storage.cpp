@@ -114,20 +114,31 @@ bool blockchain_storage::init(const std::string& config_folder)
   }
   else 
   {
-	  BlockCacheSerializer loader(*this, get_block_hash(m_blocks.back().bl));
+	  auto hash = get_block_hash(m_blocks.back().bl);
+	  BlockCacheSerializer loader(*this, hash, m_blocks.back().height);
 	  tools::unserialize_obj_from_file(loader, tools::appendPath(config_folder, CURRENCY_BLOCKCACHE_FILENAME));
 
-	  if (!loader.loaded()) 
+	  if (!loader.loaded() || hash != loader.getStoredLastBlockHash())
 	  {
-		  LOG_PRINT_L0("No actual blockchain cache found, rebuilding internal structures...");
-		  std::chrono::steady_clock::time_point timePoint = std::chrono::steady_clock::now();
-		  m_blocks_index.clear();
-		  m_transactions.clear();
-		  m_spent_keys.clear();
-		  m_outputs.clear();
-		  
+		  uint32_t b = 0;
+		  if (!loader.loaded())
+		  {
+			  LOG_PRINT_L0("No actual blockchain cache found, rebuilding internal structures...");
+			  m_blocks_index.clear();
+			  m_transactions.clear();
+			  m_spent_keys.clear();
+			  m_outputs.clear();
+		  }
+		  else
+		  {
+			  b = loader.getStoredHeight() + 1;
+			  LOG_PRINT_L0("Adnormal exit detected, rebuilding internal structures from height " << b);
+			  std::cout << "Height " << b << " of " << m_blocks.size() << '\r';
+		  }
 
-		  for (uint32_t b = 0; b < m_blocks.size(); ++b) 
+		  std::chrono::steady_clock::time_point timePoint = std::chrono::steady_clock::now();
+		 
+		  for (; b < m_blocks.size(); ++b) 
 		  {
 			  if (b % 1000 == 0) 
 			  {
@@ -208,7 +219,7 @@ bool blockchain_storage::store_blockchain()
   m_is_blockchain_storing = true;
 
   LOG_PRINT_L0("Storing blockchain...");
-  BlockCacheSerializer ser(*this, get_top_block_id());
+  BlockCacheSerializer ser(*this, get_top_block_id(),m_blocks.back().height );
   if (!tools::serialize_obj_to_file(ser, tools::appendPath(m_config_folder, CURRENCY_BLOCKCACHE_FILENAME)))
   {
 	  LOG_ERROR("Failed to save blockchain cache");
@@ -2279,6 +2290,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     return false;
   }
 
+  m_is_in_checkpoint_zone = false;
   if(m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height()))
   {
     m_is_in_checkpoint_zone = true;
@@ -2290,7 +2302,6 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
     }
   }
 
-  m_is_in_checkpoint_zone = false;
   TIME_MEASURE_FINISH(longhash_calculating_time);
 
   if(!prevalidate_miner_transaction(bl, m_blocks.size()))
