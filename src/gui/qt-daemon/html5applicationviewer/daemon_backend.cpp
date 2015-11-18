@@ -345,6 +345,7 @@ bool daemon_backend::update_state_info(uint64_t &state)
   case currency::COMMAND_RPC_GET_INFO::daemon_network_state_connecting:     dsi.text_state = "Connecting";break;
   case currency::COMMAND_RPC_GET_INFO::daemon_network_state_online:         dsi.text_state = "Online";break;
   case currency::COMMAND_RPC_GET_INFO::daemon_network_state_synchronizing:  dsi.text_state = "Synchronizing";break;
+  case currency::COMMAND_RPC_GET_INFO::daemon_network_state_transforming:   dsi.text_state = "Transforming"; break;
   default: dsi.text_state = "unknown";break;
   }
   dsi.daemon_network_state = inf.daemon_network_state; 

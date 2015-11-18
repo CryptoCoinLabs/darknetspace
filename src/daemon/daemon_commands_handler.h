@@ -37,7 +37,8 @@ public:
     m_cmd_binder.set_handler("stop_mining", boost::bind(&daemon_cmmands_handler::stop_mining, this, _1), "Stop mining");
     m_cmd_binder.set_handler("print_pool", boost::bind(&daemon_cmmands_handler::print_pool, this, _1), "Print transaction pool (long format)");
     m_cmd_binder.set_handler("print_pool_sh", boost::bind(&daemon_cmmands_handler::print_pool_sh, this, _1), "Print transaction pool (short format)");
-    m_cmd_binder.set_handler("show_hr", boost::bind(&daemon_cmmands_handler::show_hr, this, _1), "Start showing hash rate");
+	m_cmd_binder.set_handler("print_pool_list", boost::bind(&daemon_cmmands_handler::print_pool_list, this, _1), "Print transaction pool (list format)");
+	m_cmd_binder.set_handler("show_hr", boost::bind(&daemon_cmmands_handler::show_hr, this, _1), "Start showing hash rate");
     m_cmd_binder.set_handler("hide_hr", boost::bind(&daemon_cmmands_handler::hide_hr, this, _1), "Stop showing hash rate");
     m_cmd_binder.set_handler("make_alias", boost::bind(&daemon_cmmands_handler::make_alias, this, _1), "Puts alias reservation record into block template, if alias is free");
     m_cmd_binder.set_handler("save", boost::bind(&daemon_cmmands_handler::save, this, _1), "Save blockchain");
@@ -333,15 +334,22 @@ private:
   //--------------------------------------------------------------------------------
   bool print_pool(const std::vector<std::string>& args)
   {
-    LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(false));
+	  LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(currency::tx_memory_pool::TX_POOL_FORMAT_LONG));
     return true;
   }
   //--------------------------------------------------------------------------------
   bool print_pool_sh(const std::vector<std::string>& args)
   {
-    LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(true));
+	  LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(currency::tx_memory_pool::TX_POOL_FORMAT_SHORT));
     return true;
-  }  //--------------------------------------------------------------------------------
+  }  
+  //--------------------------------------------------------------------------------
+  bool print_pool_list(const std::vector<std::string>& args)
+  {
+	  LOG_PRINT_L0("Pool state: " << ENDL << m_srv.get_payload_object().get_core().print_pool(currency::tx_memory_pool::TX_POOL_FORMAT_LIST));
+	  return true;
+  }
+  //--------------------------------------------------------------------------------
   bool start_mining(const std::vector<std::string>& args)
   {
     if(!args.size())

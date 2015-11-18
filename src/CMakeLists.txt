@@ -79,6 +79,10 @@ if(BUILD_GUI)
   target_link_libraries(qt-dnsp wallet rpc currency_core crypto common Qt5::Widgets ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} )
   set_property(TARGET qt-dnsp PROPERTY FOLDER "prog")
   set(CMAKE_AUTOMOC OFF)
+  
+  SET_TARGET_PROPERTIES(daemon connectivity_tool simplewallet simpleminer qt-dnsp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ../)  
+else()
+  SET_TARGET_PROPERTIES(daemon connectivity_tool simplewallet simpleminer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ../)  
 endif()
 
 if(APPLE)
@@ -98,3 +102,4 @@ if(SIMPLE_BUNDLE)
     install(CODE "execute_process(COMMAND ${FIXUP_COMMAND})")
   endif()
 endif()
+

@@ -39,6 +39,7 @@ blockchain_storage::blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_poo
                                                                 m_donations_account(AUTO_VAL_INIT(m_donations_account)), 
                                                                 m_royalty_account(AUTO_VAL_INIT(m_royalty_account)),
                                                                 m_is_blockchain_storing(false), 
+																m_is_blockchain_transforming(false),
                                                                 m_current_pruned_rs_height(0)
 {
   bool r = get_donation_accounts(m_donations_account, m_royalty_account);
@@ -136,6 +137,7 @@ bool blockchain_storage::init(const std::string& config_folder)
 			  std::cout << "Height " << b << " of " << m_blocks.size() << '\r';
 		  }
 
+		  m_is_blockchain_transforming = true;
 		  std::chrono::steady_clock::time_point timePoint = std::chrono::steady_clock::now();
 		 
 		  for (; b < m_blocks.size(); ++b) 
@@ -181,6 +183,7 @@ bool blockchain_storage::init(const std::string& config_folder)
 
 		  std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timePoint;
 		  LOG_PRINT_L0("Rebuilding internal structures took: " << duration.count());
+		  m_is_blockchain_transforming = false;
 	  }
   }
   block bl = boost::value_initialized<block>();
@@ -2639,6 +2642,7 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 		"m_current_pruned_rs_height: " << m_current_pruned_rs_height << ENDL);
 
 	LOG_PRINT_L0("Read old blockchain completed, begin to migrate...");
+	m_is_blockchain_transforming = true;
 
 	blockchain_storage::BlockEntry block;
 	for (uint32_t b = 0; b < blocks.size(); ++b)
@@ -2681,8 +2685,9 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 
 		CHECK_AND_ASSERT_MES_NO_RET(m_blocks_index.size() == m_blocks.size(),"blocks and indexed are not coresponding to each other(m_blocks_index: " << m_blocks_index.size() << ",m_blocks: " << m_blocks.size());
 	}
-
+	
 	update_next_comulative_size_limit();
+	m_is_blockchain_transforming = false;
 	CHECK_AND_ASSERT_MES_NO_RET(m_current_block_cumul_sz_limit == current_block_cumul_sz_limit, "Migration was unsuccessful.");
 }
 

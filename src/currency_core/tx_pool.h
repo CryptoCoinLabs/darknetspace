@@ -32,6 +32,15 @@ namespace currency
   class tx_memory_pool: boost::noncopyable
   {
   public:
+
+	  typedef enum
+	  {
+		  TX_POOL_FORMAT_LONG = 0,
+		  TX_POOL_FORMAT_SHORT,
+		  TX_POOL_FORMAT_LIST
+	  }TX_POOL_FORMAT;
+
+
     tx_memory_pool(blockchain_storage& bchs);
     bool add_tx(const transaction &tx, const crypto::hash &id, tx_verification_context& tvc, bool keeped_by_block,std::string alias = "");
     bool add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block,std::string alias = "");
@@ -60,7 +69,7 @@ namespace currency
     bool remove_transaction_keyimages(const transaction& tx);
     bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
     bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
-    std::string print_pool(bool short_format);
+	std::string print_pool(TX_POOL_FORMAT fm);
 
 	bool remove_alias_tx_pair(crypto::hash id);
 	bool add_alias_tx_pair(std::string & alias, crypto::hash id);

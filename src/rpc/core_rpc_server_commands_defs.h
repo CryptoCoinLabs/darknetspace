@@ -367,7 +367,8 @@ namespace currency
     {
       daemon_network_state_connecting = 0,
       daemon_network_state_synchronizing = 1,
-      daemon_network_state_online = 2
+      daemon_network_state_online = 2,
+	  daemon_network_state_transforming = 3 //transform blockchain from old blockchain.bin to blocks.dat and blockindex.dat
     };
 
     struct response

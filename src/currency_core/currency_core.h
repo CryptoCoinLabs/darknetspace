@@ -88,7 +88,7 @@ namespace currency
      //debug functions
      void print_blockchain(uint64_t start_index, uint64_t end_index);
      void print_blockchain_index();
-     std::string print_pool(bool short_format);
+	 std::string print_pool(tx_memory_pool::TX_POOL_FORMAT fm);
      void print_blockchain_outs(const std::string& file);
      void on_synchronized();
 

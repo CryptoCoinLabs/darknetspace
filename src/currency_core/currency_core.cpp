@@ -506,9 +506,9 @@ namespace currency
     m_blockchain_storage.get_all_known_block_ids(main, alt, invalid);
   }
   //-----------------------------------------------------------------------------------------------
-  std::string core::print_pool(bool short_format)
+  std::string core::print_pool(tx_memory_pool::TX_POOL_FORMAT fm)
   {
-    return m_mempool.print_pool(short_format);
+    return m_mempool.print_pool(fm);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::update_miner_block_template()

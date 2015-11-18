@@ -76,7 +76,7 @@ namespace currency
   bool core_rpc_server::on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, connection_context& cntx)
   {
     if (m_p2p.get_payload_object().get_core().get_blockchain_storage().is_storing_blockchain())
-    {
+	{
       res.status = CORE_RPC_STATUS_BUSY; 
       return true; 
     }
@@ -98,7 +98,9 @@ namespace currency
     res.alias_count = m_core.get_blockchain_storage().get_aliases_count();
     m_core.get_blockchain_storage().get_transactions_daily_stat(res.transactions_cnt_per_day, res.transactions_volume_per_day);
 
-    if (!res.outgoing_connections_count)
+	if (m_p2p.get_payload_object().get_core().get_blockchain_storage().is_transforming_blockchain())
+		res.daemon_network_state = COMMAND_RPC_GET_INFO::daemon_network_state_transforming;
+	else if (!res.outgoing_connections_count)
       res.daemon_network_state = COMMAND_RPC_GET_INFO::daemon_network_state_connecting;
     else if (m_p2p.get_payload_object().is_synchronized())
       res.daemon_network_state = COMMAND_RPC_GET_INFO::daemon_network_state_online;

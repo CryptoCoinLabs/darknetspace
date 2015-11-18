@@ -324,6 +324,7 @@ namespace currency
 		bool print_transactions_statistics();
 		bool update_spent_tx_flags_for_input(uint64_t amount, uint64_t global_index, bool spent);
 
+		bool is_transforming_blockchain(){ return m_is_blockchain_transforming; }
 		bool is_storing_blockchain(){ return m_is_blockchain_storing; }
 		wide_difficulty_type block_difficulty(size_t i);
 		bool copy_scratchpad(std::vector<crypto::hash>& dst);//TODO: not the best way, add later update method instead of full copy
@@ -384,6 +385,7 @@ namespace currency
 		checkpoints m_checkpoints;
 		std::atomic<bool> m_is_in_checkpoint_zone;
 		std::atomic<bool> m_is_blockchain_storing;
+		std::atomic<bool> m_is_blockchain_transforming;
 
 		account_keys m_donations_account;
 		account_keys m_royalty_account;

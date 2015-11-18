@@ -76,7 +76,7 @@
 #define CURRENCY_PROTOCOL_HOP_RELAX_COUNT               3      //value of hop, after which we use only announce of new block
 
 
-#define CURRENCY_ALT_BLOCK_LIVETIME_COUNT               (720*7)//one week
+#define CURRENCY_ALT_BLOCK_LIVETIME_COUNT               (720*7)//3.5 days
 #define CURRENCY_MEMPOOL_TX_LIVETIME                    86400 //seconds, one day
 #define CURRENCY_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     (CURRENCY_ALT_BLOCK_LIVETIME_COUNT*DIFFICULTY_TARGET) //seconds, one week
 
