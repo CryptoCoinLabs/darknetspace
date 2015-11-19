@@ -23,7 +23,7 @@
 #include "crypto/hash.h"
 #include <list>
 
-#define NOTFOUND (-1) 
+#define HEIGHT_NOT_FOUND (uint64_t)(-1) 
 
 namespace currency
 {
@@ -49,7 +49,7 @@ namespace currency
     }
 	uint64_t getBlockHeight(const crypto::hash& h) const
 	{
-		uint64_t nHeight = NOTFOUND;
+		uint64_t nHeight = HEIGHT_NOT_FOUND;
 		getBlockHeight(h, nHeight);
 		return nHeight;
 	}

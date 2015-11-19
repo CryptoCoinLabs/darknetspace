@@ -390,7 +390,7 @@ namespace currency
 		account_keys m_donations_account;
 		account_keys m_royalty_account;
 
-		TransactionEntry& blockchain_storage::transactionByIndex(TransactionIndex index);
+		TransactionEntry& transactionByIndex(TransactionIndex index);
 
 		bool switch_to_alternative_blockchain(std::list<AlternativeChains::iterator>& alt_chain);
 		bool pop_block_from_blockchain();

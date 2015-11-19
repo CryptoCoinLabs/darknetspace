@@ -211,8 +211,9 @@ bool blockchain_storage::init(const std::string& config_folder)
 	  timestamp_diff = time(NULL) - 1341378000;
   }
   fill_addr_to_alias_dict();
+  currency::wide_difficulty_type diff = get_difficulty_for_next_block();
   LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_blocks.size() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff)  \
-	  << " time ago, current difficulty: " << (currency::wide_difficulty_type&) get_difficulty_for_next_block(), LOG_LEVEL_0);
+	  << " time ago, current difficulty: " << diff, LOG_LEVEL_0);
   return true;
 }
 //------------------------------------------------------------------
@@ -1091,7 +1092,7 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
       }
     }else
     {
-	  CHECK_AND_ASSERT_MES(nHeight != -1, false, "internal error: broken imperative condition");
+	   CHECK_AND_ASSERT_MES(nHeight != HEIGHT_NOT_FOUND, false, "internal error: broken imperative condition");
 	  complete_timestamps_vector(nHeight, timestamps);
     }
     //check timestamp correct
@@ -1555,7 +1556,7 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
   for(; bl_it != qblock_ids.end(); bl_it++, i++)
   {
 	  nHeight = m_blocks_index.hasBlock(*bl_it);
-	  if (nHeight != NOTFOUND) break;
+	  if (nHeight != HEIGHT_NOT_FOUND) break;
   }
 
   if(bl_it == qblock_ids.end())
@@ -1564,7 +1565,7 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
     return false;
   }
 
-  if (nHeight == NOTFOUND)
+  if (nHeight == HEIGHT_NOT_FOUND)
   {
     //this should NEVER happen, but, dose of paranoia in such cases is not too bad
     LOG_ERROR("Internal error handling connection, can't find split point");
@@ -1598,9 +1599,10 @@ void blockchain_storage::print_blockchain(uint64_t start_index, uint64_t end_ind
 
   for(size_t i = start_index; i != m_blocks.size() && i != end_index; i++)
   {
+	  currency::wide_difficulty_type diff = block_difficulty(i);
 	  ss << "height " << i << ", timestamp " << m_blocks[i].bl.timestamp << ", cumul_dif " << (currency::wide_difficulty_type&) m_blocks[i].cumulative_difficulty << ", cumul_size " << m_blocks[i].block_cumulative_size
       << "\nid\t\t" <<  get_block_hash(m_blocks[i].bl)
-	  << "\ndifficulty\t\t" << (currency::wide_difficulty_type&)block_difficulty(i) << ", nonce " << m_blocks[i].bl.nonce << ", tx_count " << m_blocks[i].bl.tx_hashes.size() << ENDL;
+	  << "\ndifficulty\t\t" << diff << ", nonce " << m_blocks[i].bl.nonce << ", tx_count " << m_blocks[i].bl.tx_hashes.size() << ENDL;
   }
   LOG_PRINT_L1("Current blockchain:" << ENDL << ss.str());
   LOG_PRINT_L0("Blockchain printed with log level 1");
@@ -2002,7 +2004,7 @@ bool blockchain_storage::add_transaction_from_block(TransactionEntry& txe, const
   }
   else
   {
-	  TransactionIndex transactionIndex = { bl_height, tx_index };
+	  TransactionIndex transactionIndex = { (uint32_t)bl_height, tx_index };
 	  auto i_r = m_transactions.insert(std::make_pair<>(tx_id, transactionIndex));
 	  if (!i_r.second)
 	  {
@@ -2494,7 +2496,7 @@ bool  blockchain_storage::get_blocks(const t_ids_container& block_ids, t_blocks_
 	BOOST_FOREACH(const auto& bl_id, block_ids)
 	{
 		uint64_t nHeight = m_blocks_index.getBlockHeight(bl_id);
-		if (NOTFOUND == nHeight)
+		if (HEIGHT_NOT_FOUND == nHeight)
 			missed_bs.push_back(bl_id);
 		else
 		{
@@ -2676,7 +2678,6 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 
 		for (uint32_t t = 0; t < blocks[b].bl.tx_hashes.size(); ++t)
 		{
-			blockchain_storage::TransactionIndex ti = { b, t+1 };
 			block.transactions[1 + t].tx = transactions[blocks[b].bl.tx_hashes[t]].tx;
 		}
 		
@@ -2714,7 +2715,7 @@ bool blockchain_storage::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to
 		}
 		
 		TransactionEntry &txe = transactionByIndex(amount_outs_vec[i].first);
-		auto &tx_it = m_transactions.find(get_transaction_hash(txe.tx));
+		auto tx_it = m_transactions.find(get_transaction_hash(txe.tx));
 
 		CHECK_AND_ASSERT_MES(tx_it != m_transactions.end(), false, "Wrong transaction id in output indexes: " << string_tools::pod_to_hex(amount_outs_vec[i].first));
 		CHECK_AND_ASSERT_MES(amount_outs_vec[i].second < txe.tx.vout.size(), false,
