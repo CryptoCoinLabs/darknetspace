@@ -73,32 +73,36 @@ namespace currency {
   const wide_difficulty_type max64bit(std::numeric_limits<std::uint64_t>::max());
   const boost::multiprecision::uint256_t max128bit(std::numeric_limits<boost::multiprecision::uint128_t>::max());
   const boost::multiprecision::uint512_t max256bit(std::numeric_limits<boost::multiprecision::uint256_t>::max());
-  
-  boost::multiprecision::uint128_t make_buint128(uint64_t lowpart, uint64_t highpart)
+
+  boost::multiprecision::uint128_t uint128_n2b(const uint128_t &n)
   {
 	  //load high part
-	  boost::multiprecision::uint128_t x = highpart;
+	  boost::multiprecision::uint128_t x = n.upper();
 
 	  //load low part
 	  x = x << 64;
-	  x += x;
+	  x += n.lower();
 
 	  return x;
   }
 
-  void split_buint128(const boost::multiprecision::uint128_t & x, uint64_t &lowpart, uint64_t &highpart)
+  uint128_t uint128_b2n(const boost::multiprecision::uint128_t & b)
   {
-	  boost::multiprecision::uint128_t _wdiff = x;
+	  
+	  boost::multiprecision::uint128_t _wdiff = b;
 	  _wdiff = _wdiff >> 64;
 
+	  uint64_t lowpart, highpart;
 	  // high part
 	  highpart = _wdiff.convert_to<uint64_t>();
 
 	  //store low part
-	  _wdiff = x;
+	  _wdiff = b;
 	  _wdiff = _wdiff << 64;
 	  _wdiff = _wdiff >> 64;
 	  lowpart = _wdiff.convert_to<uint64_t>();
+
+	  return uint128_t(highpart, lowpart);
   }
 
   bool check_hash(const crypto::hash &hash, wide_difficulty_type difficulty) 
@@ -135,7 +139,7 @@ namespace currency {
       hashVal |= swap64le(((const uint64_t *) &hash)[3 - i]);
       hashVal << 64;
     }
-	boost::multiprecision::uint128_t diff = make_buint128(difficulty.lower(), difficulty.upper());
+	boost::multiprecision::uint128_t diff = uint128_n2b(difficulty);
 	return (hashVal * diff > max256bit);
   }
 
@@ -180,7 +184,8 @@ namespace currency {
     return (low + time_span - 1) / time_span;
   }
 
-  wide_difficulty_type next_difficulty(vector<uint64_t> timestamps, vector<wide_difficulty_type> cumulative_difficulties, size_t target_seconds) {
+  wide_difficulty_type next_difficulty(vector<uint64_t> timestamps, vector<wide_difficulty_type> cumulative_difficulties, size_t target_seconds) 
+  {
     //cutoff DIFFICULTY_LAG
     if(timestamps.size() > DIFFICULTY_WINDOW)
     {
@@ -190,7 +195,8 @@ namespace currency {
 
     size_t length = timestamps.size();
     assert(length == cumulative_difficulties.size());
-    if (length <= 1) {
+    if (length <= 1) 
+	{
       return 1;
     }
     static_assert(DIFFICULTY_WINDOW >= 2, "Window is too small");
@@ -211,14 +217,15 @@ namespace currency {
     }
     assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
     uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
-    if (time_span == 0) {
+    if (time_span == 0) 
+	{
       time_span = 1;
     }
     wide_difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     assert(total_work > 0);
-	wide_difficulty_type res = ((total_work) * target_seconds + time_span - 1) / time_span;
+	wide_difficulty_type res = (total_work * target_seconds + time_span - 1) / time_span;
 
-	boost::multiprecision::uint128_t b128 = make_buint128(res.lower(), res.upper());
+	boost::multiprecision::uint128_t b128 = uint128_n2b(res);
 	boost::multiprecision::uint256_t b256 = b128;
 	if (b128 > max128bit)
 		return 0; // to behave like previuos implementation, may be better return max128bit?

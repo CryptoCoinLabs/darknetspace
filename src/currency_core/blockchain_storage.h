@@ -16,17 +16,17 @@
 
 #include "BlockIndex.h"
 #include "tx_pool.h"
+#include "difficulty.h"
 #include "currency_basic.h"
 #include "common/util.h"
 #include "currency_protocol/currency_protocol_defs.h"
 #include "rpc/core_rpc_server_commands_defs.h"
-#include "difficulty.h"
-//#include "common/difficulty_boost_serialization.h"
+#include "common/difficulty_boost_serialization.h"
 #include "currency_core/currency_format_utils.h"
 #include "verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints.h"
-#include "serialization/SwappedVector.h"
+#include "SwappedVector.h"
 
 
 POD_MAKE_HASHABLE(currency, account_public_address);
@@ -45,129 +45,21 @@ namespace currency
 	class blockchain_storage
 	{
 	public:
-
 		class BlockCacheSerializer
 		{
 		public:
 			BlockCacheSerializer(blockchain_storage& bs, const crypto::hash lastBlockHash, uint64_t nHeight) :
-				m_bs(bs), m_currentLastBlockHash(lastBlockHash), m_nHeight(nHeight), m_storedLastBlockHash(null_hash), m_loaded(false) {}
+				m_bs(bs), m_nHeight(nHeight), m_storedLastBlockHash(lastBlockHash), m_loaded(false) {}
 
-			template<class Archive> void serialize(Archive& ar, unsigned int version)
-			{
-				// ignore old versions, do rebuild
-				if (version < 1)
-				{
-					LOG_PRINT_L0("Wrong version: " << version << " ,at least " << 1 <<", current version: " << CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER);
-					return;
-				}
-				uint64_t nHeight = -1;
-				std::string operation;
-				if (Archive::is_loading::value)
-				{
-					operation = "- loading ";
-					ar & m_storedLastBlockHash;
-					ar & m_nHeight;
-
-				}
-				else
-				{
-					operation = "- saving ";
-
-					//wrong input height and block id
-					nHeight = m_bs.m_blocks_index.getBlockHeight(m_currentLastBlockHash);
-					if (nHeight != m_nHeight)
-					{
-						LOG_PRINT_L0(operation << "block index error, block id: " << m_currentLastBlockHash << ", height is " << nHeight << ", expect: " << m_nHeight);
-						return;
-					}
-
-					ar & m_currentLastBlockHash;
-					ar & m_nHeight;
-					m_storedLastBlockHash = m_currentLastBlockHash;
-				}
-
-				LOG_PRINT_L0(operation << "block index...");
-				ar & m_bs.m_blocks_index;
-
-				if (Archive::is_loading::value)
-				{
-					//when loading, check the height and last block hash are correct or not
-					nHeight = m_bs.m_blocks_index.getBlockHeight(m_storedLastBlockHash);
-					if (Archive::is_loading::value && nHeight != m_nHeight)
-					{
-						LOG_PRINT_L0(operation << "block index error, stored last block id: " << m_storedLastBlockHash << ", height is " << ( nHeight == -1 ? -1 : nHeight) << ", expect height: " << m_nHeight);
-						m_storedLastBlockHash = null_hash;
-						return;
-					}
-				}
-
-				LOG_PRINT_L0(operation << "transaction map...");
-				ar & m_bs.m_transactions;
-
-				LOG_PRINT_L0(operation << "spend keys...");
-				ar & m_bs.m_spent_keys;
-
-				LOG_PRINT_L0(operation << "outputs...");
-				ar & m_bs.m_outputs;
-
-				LOG_PRINT_L0(operation << "aliases...");
-				ar & m_bs.m_aliases;
-
-				LOG_PRINT_L0(operation << "scratchpad...");
-				ar & m_bs.m_scratchpad;
-
-				LOG_PRINT_L0(operation << "others...");
-				ar & m_bs.m_current_block_cumul_sz_limit;
-				ar & m_bs.m_current_pruned_rs_height;
-
-				if (version < CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER && Archive::is_loading::value)
-				{
-					m_loaded = true;
-					return;
-				}
-
-				//simple count checksum
-				uint64_t stored_total_count = 0;
-				uint64_t total_count = m_bs.m_blocks_index.size() + m_bs.m_transactions.size() + m_bs.m_spent_keys.size() + \
-					m_bs.m_outputs.size() + m_bs.m_aliases.size() + m_bs.m_scratchpad.size();
-
-				if (Archive::is_saving::value)
-				{
-					ar & total_count;
-				}
-				else
-				{
-					ar & stored_total_count;
-					if (total_count != stored_total_count)
-					{
-						LOG_PRINT_L0(operation << "block cache error, stored count: " << stored_total_count << ", expect count: " << total_count);
-						return;
-					}
-				}
-
-				m_loaded = true;
-			}
-
-			bool loaded() const 
-			{
-				return m_loaded;
-			}
-
-			crypto::hash getStoredLastBlockHash() const
-			{
-				return m_storedLastBlockHash;
-			}
-
-			uint64_t getStoredHeight() const
-			{
-				return m_nHeight;
-			}
+			template<class Archive> void serialize(Archive& ar, unsigned int version);
+			bool loaded() const {return m_loaded;}
+			crypto::hash getStoredLastBlockHash() const {return m_storedLastBlockHash;}
+			uint64_t getStoredHeight() const {return m_nHeight;}
 
 		private:
 
 			bool m_loaded;
 			blockchain_storage& m_bs;
-			crypto::hash m_currentLastBlockHash;
 			crypto::hash m_storedLastBlockHash;
 			uint64_t m_nHeight;
 		};
@@ -178,6 +70,16 @@ namespace currency
 			uint64_t m_keeper_block_height;
 			std::vector<uint64_t> m_global_output_indexes;
 			std::vector<uint8_t> m_spent_flags;
+
+			transaction_chain_entry & operator=(transaction_chain_entry & tce)
+			{
+				if (this == &tce) return *this;
+				tx = tce.tx;
+				m_keeper_block_height = tce.m_keeper_block_height;
+				m_global_output_indexes = tce.m_global_output_indexes;
+				m_spent_flags = tce.m_spent_flags;
+				return *this;
+			}
 			
 			template<class Archive> void serialize(Archive & ar, unsigned int version)
 			{
@@ -196,6 +98,17 @@ namespace currency
 		};
 
 		typedef transaction_chain_entry TransactionEntry;
+
+		struct block_extended_info_old
+		{
+			block   bl;
+			uint64_t height;
+			size_t block_cumulative_size;
+			old_wide_difficulty_type cumulative_difficulty;
+			uint64_t already_generated_coins;
+			uint64_t already_donated_coins;
+			uint64_t scratch_offset;
+		};
 
 		struct block_extended_info
 		{
@@ -263,6 +176,8 @@ namespace currency
 		bool init(const std::string& config_folder);
 		bool deinit();
 
+		bool rebuildcache(uint64_t start_height = 0);
+
 		void set_checkpoints(checkpoints&& chk_pts);
 		checkpoints& get_checkpoints() { return m_checkpoints; }
 
@@ -294,7 +209,7 @@ namespace currency
 		wide_difficulty_type get_difficulty_for_next_block();
 		bool add_new_block(const block& bl_, block_verification_context& bvc);
 		bool reset_and_set_genesis_block(const block& b);
-		void clear_all_data();
+		void clear_all_cache_data();
 		bool create_block_template(block& b, const account_public_address& miner_address, wide_difficulty_type& di, uint64_t& height, const blobdata& ex_nonce, bool vote_for_donation, const alias_info& ai);
 		bool have_block(const crypto::hash& id);
 		size_t get_total_transactions();
@@ -441,5 +356,6 @@ namespace currency
 BOOST_CLASS_VERSION(currency::blockchain_storage, CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER)
 BOOST_CLASS_VERSION(currency::blockchain_storage::transaction_chain_entry, CURRENT_TRANSACTION_CHAIN_ENTRY_ARCHIVE_VER)
 BOOST_CLASS_VERSION(currency::blockchain_storage::block_extended_info, CURRENT_BLOCK_EXTENDED_INFO_ARCHIVE_VER)
+BOOST_CLASS_VERSION(currency::blockchain_storage::block_extended_info_old, CURRENT_BLOCK_EXTENDED_INFO_ARCHIVE_VER)
 BOOST_CLASS_VERSION(currency::blockchain_storage::BlockEntry, CURRENT_BLOCK_ENTRY_ARCHIVE_VER)
 BOOST_CLASS_VERSION(currency::blockchain_storage::BlockCacheSerializer, CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER)

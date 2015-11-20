@@ -8,28 +8,8 @@ namespace boost
 {
   namespace serialization
   {
-	  /*
     template<class archive_t>
-    void serialize(archive_t & ar, currency::blockchain_storage::transaction_chain_entry& te, const unsigned int version)
-    {
-      ar & te.tx;
-      ar & te.m_keeper_block_height;
-      if(version < 2)
-      {
-        size_t fake;
-        ar & fake;
-      }
-      ar & te.m_global_output_indexes;
-      if(version < 3)
-      {
-        te.m_spent_flags.resize(te.tx.vout.size(), false);
-        return;
-      }
-      ar & te.m_spent_flags;
-    }
-	
-    template<class archive_t>
-    void serialize(archive_t & ar, currency::blockchain_storage::block_extended_info& ei, const unsigned int version)
+    void serialize(archive_t & ar, currency::blockchain_storage::block_extended_info_old& ei, const unsigned int version)
     {
       ar & ei.bl;
       ar & ei.height;
@@ -39,7 +19,8 @@ namespace boost
         currency::difficulty_type old_dif = 0;
         ar & old_dif;
         ei.cumulative_difficulty = old_dif;
-      }else
+      }
+	  else
       {
         ar & ei.cumulative_difficulty;
       }
@@ -48,7 +29,8 @@ namespace boost
       ar & ei.already_donated_coins;
       ar & ei.scratch_offset;
     }
-	
+
+	/*
 	template<class archive_t>
 	void serialize(archive_t & ar, currency::blockchain_storage::BlockEntry& be, unsigned int version)
 	{
@@ -57,12 +39,31 @@ namespace boost
 	}
 
 	template<class archive_t>
+	void serialize(archive_t & ar, currency::blockchain_storage::transaction_chain_entry& te, const unsigned int version)
+	{
+	ar & te.tx;
+	ar & te.m_keeper_block_height;
+	if(version < 2)
+	{
+	size_t fake;
+	ar & fake;
+	}
+	ar & te.m_global_output_indexes;
+	if(version < 3)
+	{
+	te.m_spent_flags.resize(te.tx.vout.size(), false);
+	return;
+	}
+	ar & te.m_spent_flags;
+	}
+
+	template<class archive_t>
 	void serialize(archive_t & ar, currency::BlockIndex& bi, unsigned int version)
 	{
-		ar & biblock;
+		ar & bi.block;
 		ar & bi.transaction;
-	}*/
-
+	}
+	*/
     template<class archive_t>
     void serialize(archive_t & ar, currency::alias_info_base& ai, const unsigned int version)
     {

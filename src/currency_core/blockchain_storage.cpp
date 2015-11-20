@@ -12,7 +12,6 @@
 #include "currency_basic_impl.h"
 #include "currency_boost_serialization.h"
 #include "currency_format_utils.h"
-#include "blockchain_storage_boost_serialization.h"
 #include "currency_config.h"
 #include "miner.h"
 #include "misc_language.h"
@@ -24,6 +23,7 @@
 #include "miner_common.h"
 #include "common/uint128_t.h"
 #include "blockchain_storage.h"
+#include "blockchain_storage_boost_serialization.h"
 
 using namespace std;
 using namespace epee;
@@ -31,6 +31,144 @@ using namespace currency;
 
 DISABLE_VS_WARNINGS(4267)
 
+namespace currency
+{
+	template<class Archive> void blockchain_storage::BlockCacheSerializer::serialize(Archive& ar, unsigned int version)
+	{
+		// ignore old versions, do rebuild
+		if (version < 1)
+		{
+			LOG_PRINT_L0("Wrong version: " << version << " ,at least " << 1 << ", current version: " << CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER);
+			return;
+		}
+		uint64_t nTmpHeight = HEIGHT_NOT_FOUND;
+		uint64_t nHeight = m_nHeight;
+		crypto::hash lastBlockHash = m_storedLastBlockHash;
+
+		std::string operation;
+		if (Archive::is_loading::value)
+		{
+			operation = "- loading ";
+			ar & m_storedLastBlockHash;
+			ar & m_nHeight;
+
+			if (m_nHeight > nHeight)
+			{
+				LOG_PRINT_L0(operation << "block index error, index: " << m_nHeight + 1 << ", block size: " << nHeight + 1 << ", please exit dnsd and restart it to rebuild internal stuctures... ");
+				return;
+			}
+
+		}
+		else
+		{
+			operation = "- saving ";
+
+			//wrong input height and block id
+			nTmpHeight = m_bs.m_blocks_index.getBlockHeight(lastBlockHash);
+			if (nHeight != nTmpHeight)
+			{
+				LOG_PRINT_L0(operation << "block index error, block id: " << lastBlockHash << ", index height " << m_nHeight << ", block height: " << nHeight);
+				m_storedLastBlockHash = null_hash;
+				m_nHeight = HEIGHT_NOT_FOUND;
+				return;
+			}
+
+			//bigger than or equalt to block size, need to rebulid all blockcache.
+			if (m_bs.m_blocks_index.size() != m_bs.m_blocks.size())
+			{
+				LOG_PRINT_L0(operation << "block index error, index: " << m_bs.m_blocks_index.size() << ", block size: " << m_bs.m_blocks.size() << ", please exit dnsd and restart it to rebuild internal stuctures... ");
+				return;
+			}
+			m_storedLastBlockHash = lastBlockHash;
+			m_nHeight = nHeight;
+
+			ar & m_storedLastBlockHash;
+			ar & m_nHeight;
+		}
+
+		LOG_PRINT_L1(operation << "block index...");
+		ar & m_bs.m_blocks_index;
+
+		if (Archive::is_loading::value)
+		{
+			//when loading, check the height and last block hash are correct or not
+			nTmpHeight = m_bs.m_blocks_index.getBlockHeight(m_storedLastBlockHash);
+			if (nTmpHeight != m_nHeight)
+			{
+				LOG_PRINT_L0(operation << "block index error, stored last block id: " << m_storedLastBlockHash << ", height is " << (nTmpHeight == HEIGHT_NOT_FOUND ? HEIGHT_NOT_FOUND : nHeight) << ", expect height: " << m_nHeight);
+				m_storedLastBlockHash = null_hash;
+				m_nHeight = HEIGHT_NOT_FOUND;
+				m_bs.m_blocks_index.clear();
+				return;
+			}
+
+			//if stored last block hash is not equal to current block hash, there is something wrong
+			if (m_storedLastBlockHash != lastBlockHash)
+			{
+				//bigger than or equalt to block size, need to rebulid all blockcache.
+				if (m_bs.m_blocks_index.size() >= m_bs.m_blocks.size())
+				{
+					m_bs.m_blocks_index.clear();
+					m_storedLastBlockHash = null_hash;
+					return;
+				}
+				else //(m_bs.m_blocks_index.size() < m_bs.m_blocks.size())
+				{
+					//less than block size, maybe we just need to rebuild missing indexes. Do nothing and go on load blockcache.
+				}
+			}
+		}
+
+		LOG_PRINT_L1(operation << "transaction map...");
+		ar & m_bs.m_transactions;
+
+		LOG_PRINT_L1(operation << "spend keys...");
+		ar & m_bs.m_spent_keys;
+
+		LOG_PRINT_L1(operation << "outputs...");
+		ar & m_bs.m_outputs;
+
+		LOG_PRINT_L1(operation << "aliases...");
+		ar & m_bs.m_aliases;
+
+		LOG_PRINT_L1(operation << "scratchpad...");
+		ar & m_bs.m_scratchpad;
+
+		LOG_PRINT_L1(operation << "others...");
+		ar & m_bs.m_current_block_cumul_sz_limit;
+		ar & m_bs.m_current_pruned_rs_height;
+
+		if (version < CURRENT_BLOCKCACHE_STORAGE_ARCHIVE_VER && Archive::is_loading::value)
+		{
+			m_loaded = true;
+			return;
+		}
+
+		//simple count checksum
+		uint64_t stored_total_count = 0;
+		uint64_t total_count = m_bs.m_blocks_index.size() + m_bs.m_transactions.size() + m_bs.m_spent_keys.size() + \
+			m_bs.m_outputs.size() + m_bs.m_aliases.size() + m_bs.m_scratchpad.size();
+
+		if (Archive::is_saving::value)
+		{
+			ar & total_count;
+		}
+		else
+		{
+			ar & stored_total_count;
+			if (total_count != stored_total_count)
+			{
+				LOG_PRINT_L0(operation << "block cache error, stored count: " << stored_total_count << ", expect count: " << total_count);
+				m_bs.clear_all_cache_data();
+				m_bs.m_current_pruned_rs_height = 0;
+				m_bs.m_current_block_cumul_sz_limit = 0;
+				return;
+			}
+		}
+
+		m_loaded = true;
+	}
+}
 
 //------------------------------------------------------------------
 blockchain_storage::blockchain_storage(tx_memory_pool& tx_pool):m_tx_pool(tx_pool), 
@@ -85,6 +223,76 @@ void blockchain_storage::fill_addr_to_alias_dict()
   }
 }
 //------------------------------------------------------------------
+bool blockchain_storage::rebuildcache(uint64_t start_height)
+{
+	CRITICAL_REGION_LOCAL(m_blockchain_lock);
+	m_is_blockchain_transforming = true;
+	std::chrono::steady_clock::time_point timePoint = std::chrono::steady_clock::now();
+	bool bReturn = false;
+
+	for (uint64_t b = start_height; b < m_blocks.size(); ++b)
+	{
+		if (b % 1000 == 0)
+		{
+			std::cout << "Height " << b << " of " << m_blocks.size() << '\r';
+		}
+		const BlockEntry& block = m_blocks[b];
+		crypto::hash blockHash = get_block_hash(block.bl);
+
+		m_blocks_index.push(blockHash);
+		for (uint16_t t = 0; t < block.transactions.size(); ++t)
+		{
+			const TransactionEntry& transaction = block.transactions[t];
+			crypto::hash transactionHash = get_transaction_hash(transaction.tx);
+
+			bool r = process_blockchain_tx_extra(transaction.tx);
+			if (r == false)
+			{
+				LOG_PRINT_L0("failed to process_blockchain_tx_extra, block_id: " << blockHash << ", tx_id = " << transactionHash); 
+				break;
+			}
+
+			TransactionIndex transactionIndex = { b, t };
+			m_transactions.insert(std::make_pair(transactionHash, transactionIndex));
+
+			//m_spent_keys
+			for (auto & i : transaction.tx.vin)
+			{
+				if (i.type() == typeid(txin_to_key))
+				{
+					m_spent_keys.insert(boost::get<txin_to_key>(i).k_image);
+				}
+			}
+			//m_outputs
+			for (uint16_t o = 0; o < transaction.tx.vout.size(); ++o)
+			{
+				m_outputs[transaction.tx.vout[o].amount].push_back(std::make_pair<>(transactionIndex, o));
+			}
+		}
+
+		//append to scratchpad
+		if (!push_block_scratchpad_data(block.bl, m_scratchpad))
+		{
+			LOG_PRINT_L0("failed to push_block_scratchpad_data, block_id: " << blockHash); 
+			break;
+		}
+	}
+	bReturn = true;
+	m_is_blockchain_transforming = false;
+	std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timePoint;
+
+	if (bReturn)
+	{
+		LOG_PRINT_L0("Rebuilding internal structures took: " << duration.count());
+	}
+	else
+	{
+		LOG_PRINT_RED("Failed to rebuild internal structures, blocks and indexes files error,please exit dnsd, delete all blockchain data and restart dnsd.", LOG_LEVEL_0);
+	}
+	return bReturn;
+}
+
+//--------------------------------------------------------------------
 bool blockchain_storage::init(const std::string& config_folder)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -110,7 +318,14 @@ bool blockchain_storage::init(const std::string& config_folder)
 	  if (!tools::unserialize_obj_from_file(*this, filename)) 
 	  {
 		  LOG_PRINT_L0("Can't load blockchain storage from file.");
-		  clear_all_data();
+		  m_blocks.clear();
+		  clear_all_cache_data();
+	  }
+	  else
+	  {
+		  LOG_PRINT_L0("Rebuild internal structures...");
+		  clear_all_cache_data();
+		  CHECK_AND_ASSERT_MES(rebuildcache(), false, "Failed to rebuild cache from old blockchain.");
 	  }
   }
   else 
@@ -125,65 +340,25 @@ bool blockchain_storage::init(const std::string& config_folder)
 		  if (!loader.loaded())
 		  {
 			  LOG_PRINT_L0("No actual blockchain cache found, rebuilding internal structures...");
-			  m_blocks_index.clear();
-			  m_transactions.clear();
-			  m_spent_keys.clear();
-			  m_outputs.clear();
 		  }
 		  else
 		  {
-			  b = loader.getStoredHeight() + 1;
-			  LOG_PRINT_L0("Adnormal exit detected, rebuilding internal structures from height " << b);
+			  b = loader.getStoredHeight();
+			  if (b < m_blocks.size()-1)
+			  {
+				  LOG_PRINT_L0("Abnormal exit detected, rebuilding internal structures from height " << b);
+				  b++;
+			  }
+			  else 
+			  {
+				  LOG_PRINT_L0("Wrong index  " << b << " found,  while hashes not corresponding, rebuilding internal structures from height 0...");
+				  b = 0;
+			  }
+
 			  std::cout << "Height " << b << " of " << m_blocks.size() << '\r';
 		  }
 
-		  m_is_blockchain_transforming = true;
-		  std::chrono::steady_clock::time_point timePoint = std::chrono::steady_clock::now();
-		 
-		  for (; b < m_blocks.size(); ++b) 
-		  {
-			  if (b % 1000 == 0) 
-			  {
-				  std::cout << "Height " << b << " of " << m_blocks.size() << '\r';
-			  }
-			  const BlockEntry& block = m_blocks[b];
-			  crypto::hash blockHash = get_block_hash(block.bl);
-			 
-			  m_blocks_index.push(blockHash);
-			  for (uint16_t t = 0; t < block.transactions.size(); ++t) 
-			  {
-				  const TransactionEntry& transaction = block.transactions[t];
-				  crypto::hash transactionHash = get_transaction_hash(transaction.tx);
-
-				  bool r = process_blockchain_tx_extra(transaction.tx);
-				  //CHECK_AND_ASSERT_MES(r, false, "failed to process_blockchain_tx_extra");
-
-				  TransactionIndex transactionIndex = { b, t };
-				  m_transactions.insert(std::make_pair(transactionHash, transactionIndex));
-				  for (auto & i : transaction.tx.vin)
-				  {
-					  if (i.type() == typeid(txin_to_key))
-					  {
-						  m_spent_keys.insert(boost::get<txin_to_key>(i).k_image);
-					  }
-				  }
-
-				  for (uint16_t o = 0; o < transaction.tx.vout.size(); ++o) 
-				  {
-					  m_outputs[transaction.tx.vout[o].amount].push_back(std::make_pair<>(transactionIndex, o));
-				  }
-			  }
-
-			  //append to scratchpad
-			  if (!push_block_scratchpad_data(block.bl, m_scratchpad))
-			  {
-				  //return false;
-			  }
-		  }
-
-		  std::chrono::duration<double> duration = std::chrono::steady_clock::now() - timePoint;
-		  LOG_PRINT_L0("Rebuilding internal structures took: " << duration.count());
-		  m_is_blockchain_transforming = false;
+		  CHECK_AND_ASSERT_MES(rebuildcache(b), false, "Failed to rebuild cache.");
 	  }
   }
   block bl = boost::value_initialized<block>();
@@ -199,7 +374,8 @@ bool blockchain_storage::init(const std::string& config_folder)
   else 
   {
 	  crypto::hash firstBlockHash = get_block_hash(m_blocks[0].bl);
-	  CHECK_AND_ASSERT_MES(firstBlockHash == get_block_hash(bl), false,
+	  crypto::hash id = get_block_hash(bl);
+	  CHECK_AND_ASSERT_MES(firstBlockHash == id, false,
 		  "Failed to init: genesis block mismatch. Probably you set --testnet flag with data dir with non-test blockchain or another network.");
   }
 
@@ -311,12 +487,11 @@ bool blockchain_storage::prune_ring_signatures_if_need()
   return true;
 }
 //------------------------------------------------------------------
-void blockchain_storage::clear_all_data()
+void blockchain_storage::clear_all_cache_data()
 {
 	CRITICAL_REGION_LOCAL(m_blockchain_lock);
 	m_transactions.clear();
 	m_spent_keys.clear();
-	m_blocks.clear();
 	m_blocks_index.clear();
 	m_alternative_chains.clear();
 	m_outputs.clear();
@@ -328,8 +503,8 @@ void blockchain_storage::clear_all_data()
 
 bool blockchain_storage::reset_and_set_genesis_block(const block& b)
 {
-  clear_all_data();
-
+  clear_all_cache_data();
+  m_blocks.clear();
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
   return bvc.m_added_to_main_chain && !bvc.m_verifivation_failed;
@@ -1024,7 +1199,7 @@ bool blockchain_storage::complete_timestamps_vector(uint64_t start_top_height, s
 
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   size_t need_elements = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - timestamps.size();
-  CHECK_AND_ASSERT_MES(start_top_height <= m_blocks.size(), false, "internal error: passed start_height = " << start_top_height << " not less then m_blocks.size()=" << m_blocks.size());
+  CHECK_AND_ASSERT_MES(start_top_height < m_blocks.size(), false, "internal error: passed start_height = " << start_top_height << " not less then m_blocks.size()=" << m_blocks.size());
   size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements:0;
   do
   {
@@ -1694,6 +1869,7 @@ bool blockchain_storage::add_block_as_invalid(const BlockEntry& bei, const crypt
 bool blockchain_storage::have_block(const crypto::hash& id)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
   if(m_blocks_index.hasBlock(id))
     return true;
   if(m_alternative_chains.count(id))
@@ -2418,6 +2594,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
   {
     LOG_ERROR("Internal error for block id: " << id << ": failed to put_block_scratchpad_data");
     purge_block_data_from_blockchain(bl, tx_processed_count);
+	m_blocks_index.pop();
     bvc.m_verifivation_failed = true;
     return false;    
   }
@@ -2427,6 +2604,14 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
 #endif
 
   m_blocks.push_back(bei);
+
+  if (m_blocks_index.size() != m_blocks.size())
+  {
+	  LOG_PRINT_RED("block and index not corresponding. Rebuilding internal structures...", LOG_LEVEL_0);
+	  clear_all_cache_data();
+	  CHECK_AND_ASSERT_MES(rebuildcache(0), false, "Failed to rebuild cache.");
+  }
+
   update_next_comulative_size_limit();
   TIME_MEASURE_FINISH(block_processing_time);
   LOG_PRINT_L1("+++++ BLOCK SUCCESSFULLY ADDED" << ENDL << "id:\t" << id
@@ -2463,15 +2648,17 @@ bool blockchain_storage::add_new_block(const block& bl_, block_verification_cont
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+
   if(have_block(id))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
     return false;
   }
-
+  
+  crypto::hash h = get_top_block_id();
   //check that block refers to chain tail
-  if(!(bl.prev_id == get_top_block_id()))
+  if(!(bl.prev_id == h))
   {
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
@@ -2534,10 +2721,10 @@ template<class archive_t>
 void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 {
 	//old structure
-	typedef std::vector<block_extended_info> blocks_container;
+	typedef std::vector<block_extended_info_old> blocks_container;
 	typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
 	typedef std::unordered_map<crypto::hash, transaction_chain_entry> transactions_container;
-	typedef std::unordered_map<crypto::hash, block_extended_info> blocks_ext_by_hash;
+	typedef std::unordered_map<crypto::hash, block_extended_info_old> blocks_ext_by_hash;
 	typedef std::map<uint64_t, std::vector<std::pair<crypto::hash, size_t>>> outputs_container; //crypto::hash - tx hash, size_t - index of out in transaction
 
 	blocks_container blocks;
@@ -2562,6 +2749,7 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 	ar & blocks;
 	ar & blocks_index;
 	ar & transactions;
+	/*
 	ar & m_spent_keys;
 
 	//do not keep alternative blocks
@@ -2570,20 +2758,18 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 
 	size_t current_block_cumul_sz_limit;
 
-	ar & m_outputs;
+	ar & outputs;
 	ar & invalid_blocks;
 	ar & current_block_cumul_sz_limit;
 	ar & aliases;
 	ar & m_scratchpad;
 
-	/*---- serialization bug workaround ----*/
-
-	/*serialization m_alternative_chains excluding*/
+	//serialization m_alternative_chains excluding
 	uint64_t total_check_count = 0;
 	if (archive_t::is_loading::value && version < 27)
-		total_check_count = blocks.size() + blocks_index.size() + transactions.size() + m_spent_keys.size() + alternative_chains.size() + m_outputs.size() + invalid_blocks.size() + current_block_cumul_sz_limit;
+		total_check_count = blocks.size() + blocks_index.size() + transactions.size() + m_spent_keys.size() + alternative_chains.size() + outputs.size() + invalid_blocks.size() + current_block_cumul_sz_limit;
 	else
-		total_check_count = blocks.size() + blocks_index.size() + transactions.size() + m_spent_keys.size() + m_outputs.size() + invalid_blocks.size() + current_block_cumul_sz_limit;
+		total_check_count = blocks.size() + blocks_index.size() + transactions.size() + m_spent_keys.size() + outputs.size() + invalid_blocks.size() + current_block_cumul_sz_limit;
 
 	if (archive_t::is_saving::value)
 	{
@@ -2610,27 +2796,12 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 			throw std::runtime_error("Blockchain data corruption");
 		}
 	}
-	/*
-	if(version < 25)
-	{
-	//re-sync spent flags
-	if(!resync_spent_tx_flags())
-	{
-	LOG_ERROR("resync_spent_tx_flags() failed.");
-	throw std::runtime_error("resync_spent_tx_flags() failed.");
-	}
-	}*/
+	
 
 	if (version < 26)
 		m_current_pruned_rs_height = 0;
 	else
 		ar & m_current_pruned_rs_height;
-
-	/*
-	if(archive_t::is_loading::value)
-	{
-	prune_ring_signatures_if_need();
-	}*/
 
 	LOG_PRINT_L0("Old blockchain:" << ENDL <<
 		"m_blocks: " << blocks.size() << ENDL <<
@@ -2642,6 +2813,7 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 		"m_invalid_blocks: " << invalid_blocks.size() << ENDL <<
 		"m_current_block_cumul_sz_limit: " << current_block_cumul_sz_limit << ENDL <<
 		"m_current_pruned_rs_height: " << m_current_pruned_rs_height << ENDL);
+		*/
 
 	LOG_PRINT_L0("Read old blockchain completed, begin to migrate...");
 	m_is_blockchain_transforming = true;
@@ -2659,15 +2831,23 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 
 		block.height = b;
 		block.block_cumulative_size = blocks[b].block_cumulative_size;
-		block.cumulative_difficulty = blocks[b].cumulative_difficulty;
+		block.cumulative_difficulty = uint128_b2n(blocks[b].cumulative_difficulty);
 		block.already_generated_coins = blocks[b].already_generated_coins;
 		block.already_donated_coins = blocks[b].already_donated_coins;
 		block.scratch_offset = blocks[b].scratch_offset;
 
 		block.transactions.resize(1 + blocks[b].bl.tx_hashes.size());
-		block.transactions[0].tx = blocks[b].bl.miner_tx;
+		crypto::hash tx_id = get_transaction_hash(blocks[b].bl.miner_tx);
+		block.transactions[0] = transactions[tx_id];
 
-		//m_alias
+		//add other txs
+		for (uint32_t t = 0; t < blocks[b].bl.tx_hashes.size(); ++t)
+		{
+			//transactionIndex = { b, 1 + t };
+			block.transactions[1 + t] = transactions[blocks[b].bl.tx_hashes[t]];
+		}
+		/*
+		//add the first tx, m_alias
 		bool r = process_blockchain_tx_extra(block.transactions[0].tx);
 		CHECK_AND_ASSERT_MES_NO_RET(r, "failed to process_blockchain_tx_extra");
 
@@ -2676,20 +2856,33 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 		auto it = m_transactions.insert(std::make_pair(hash, transactionIndex));
 		CHECK_AND_ASSERT_MES_NO_RET(it.second ,"transaction " << hash << "exists.");
 
+		//m_outputs
+		for (uint16_t o = 0; o < block.transactions[0].tx.vout.size(); ++o)
+		{
+			m_outputs[block.transactions[0].tx.vout[o].amount].push_back(std::make_pair<>(transactionIndex, o));
+		}
+		//add other txs
 		for (uint32_t t = 0; t < blocks[b].bl.tx_hashes.size(); ++t)
 		{
+			transactionIndex = { b, 1 + t };
 			block.transactions[1 + t].tx = transactions[blocks[b].bl.tx_hashes[t]].tx;
-		}
-		
-		m_blocks.push_back(block);// m_blocks
-		m_blocks_index.push(hash); // m_blocks_index
 
-		CHECK_AND_ASSERT_MES_NO_RET(m_blocks_index.size() == m_blocks.size(),"blocks and indexed are not coresponding to each other(m_blocks_index: " << m_blocks_index.size() << ",m_blocks: " << m_blocks.size());
+			//add items to ouputs
+			for (uint16_t o = 0; o < block.transactions[1 + t].tx.vout.size(); ++o)
+			{
+				m_outputs[block.transactions[1 + t].tx.vout[o].amount].push_back(std::make_pair<>(transactionIndex, o));
+			}
+		}*/
+
+		m_blocks.push_back(block);// m_blocks
+		//m_blocks_index.push(hash); // m_blocks_index
+
+		//CHECK_AND_ASSERT_MES_NO_RET(m_blocks_index.size() == m_blocks.size(),"blocks and indexed are not coresponding to each other(m_blocks_index: " << m_blocks_index.size() << ",m_blocks: " << m_blocks.size());
 	}
 	
 	update_next_comulative_size_limit();
 	m_is_blockchain_transforming = false;
-	CHECK_AND_ASSERT_MES_NO_RET(m_current_block_cumul_sz_limit == current_block_cumul_sz_limit, "Migration was unsuccessful.");
+//	CHECK_AND_ASSERT_MES_NO_RET(m_current_block_cumul_sz_limit == current_block_cumul_sz_limit, "Migration was unsuccessful.");
 }
 
 
