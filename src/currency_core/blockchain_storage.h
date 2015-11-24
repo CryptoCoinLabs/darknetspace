@@ -71,7 +71,7 @@ namespace currency
 			std::vector<uint64_t> m_global_output_indexes;
 			std::vector<uint8_t> m_spent_flags;
 
-			transaction_chain_entry & operator=(transaction_chain_entry & tce)
+			transaction_chain_entry & operator=(const transaction_chain_entry & tce)
 			{
 				if (this == &tce) return *this;
 				tx = tce.tx;

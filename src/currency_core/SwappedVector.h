@@ -25,7 +25,7 @@
 #include <map>
 #include <string>
 #include <vector>
-//#include "serialization/binary_archive.h"
+#include "serialization/binary_archive.h"
 
 template<class T> class SwappedVector {
 public:
