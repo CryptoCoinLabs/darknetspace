@@ -1730,7 +1730,7 @@ bool blockchain_storage::find_blockchain_supplement(const std::list<crypto::hash
   uint64_t nHeight = m_blocks_index.getBlockHeight(*bl_it);
   for(; bl_it != qblock_ids.end(); bl_it++, i++)
   {
-	  nHeight = m_blocks_index.hasBlock(*bl_it);
+	  nHeight = m_blocks_index.getBlockHeight(*bl_it);
 	  if (nHeight != HEIGHT_NOT_FOUND) break;
   }
 
