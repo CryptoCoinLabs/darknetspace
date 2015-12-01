@@ -16,7 +16,7 @@
 // along with Bytecoin.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
-
+#include "include_base_utils.h"
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -145,6 +145,8 @@ public:
 
 	bool open(const std::string& itemFileName, const std::string& indexFileName, size_t poolSize);
 	void close();
+	void hits();
+	size_t get_prepared_read_count();
 
 	bool empty() const;
 	uint64_t size() const;
@@ -240,7 +242,7 @@ template<class T> bool SwappedVector<T>::open(const std::string& itemFileName, c
 		m_indexesFile.write(reinterpret_cast<char*>(&count), sizeof count);
 		if (!m_indexesFile) 
 		{
-			std::cout << "Write index to file error." << std::endl;
+			std::cout << "Write count to index file error." << std::endl;
 			return false;
 		}
 
@@ -258,24 +260,45 @@ template<class T> bool SwappedVector<T>::open(const std::string& itemFileName, c
 	return true;
 }
 
-template<class T> void SwappedVector<T>::close() {
-	std::cout << "SwappedVector cache hits: " << m_cacheHits << ", misses: " << m_cacheMisses << " (" << std::fixed << std::setprecision(2) << static_cast<double>(m_cacheMisses) / (m_cacheHits + m_cacheMisses) * 100 << "%)" << std::endl;
+template<class T> void SwappedVector<T>::hits()
+{
+	LOG_PRINT_L1("SwappedVector size: " << m_offsets.size() <<  
+				 ", poolsize: " << m_poolSize << 
+				 ", prepared read count: " << get_prepared_read_count() <<
+				 ", cache hits : " << m_cacheHits << 
+				 ", misses : " << m_cacheMisses << " (" << std::fixed << std::setprecision(2)  
+							   << static_cast<double>(m_cacheMisses) / (m_cacheHits + m_cacheMisses) * 100 << "%)");
 }
 
-template<class T> bool SwappedVector<T>::empty() const {
+template<class T> void SwappedVector<T>::close() 
+{
+	hits();
+}
+
+template<class T> bool SwappedVector<T>::empty() const 
+{
 	return m_offsets.empty();
 }
 
-template<class T> uint64_t SwappedVector<T>::size() const {
+template<class T> uint64_t SwappedVector<T>::size() const 
+{
 	return m_offsets.size();
 }
 
-template<class T> typename SwappedVector<T>::const_iterator SwappedVector<T>::begin() {
+template<class T> typename SwappedVector<T>::const_iterator SwappedVector<T>::begin() 
+{
 	return const_iterator(this, 0);
 }
 
-template<class T> typename SwappedVector<T>::const_iterator SwappedVector<T>::end() {
+template<class T> typename SwappedVector<T>::const_iterator SwappedVector<T>::end() 
+{
 	return const_iterator(this, m_offsets.size());
+}
+
+#define MINIMUM_CACHE_LOAD_NUM 100
+template<class T> size_t SwappedVector<T>::get_prepared_read_count()
+{
+	return (m_poolSize / 10 > MINIMUM_CACHE_LOAD_NUM ? m_poolSize / 10 : MINIMUM_CACHE_LOAD_NUM);
 }
 
 template<class T> const T& SwappedVector<T>::operator[](uint64_t index) 
@@ -289,52 +312,95 @@ template<class T> const T& SwappedVector<T>::operator[](uint64_t index)
 		}
 
 		++m_cacheHits;
+		if ((m_cacheMisses + m_cacheHits) % 1000 == 0) hits();
 		return itemIter->second.item;
 	}
 
 	if (index >= m_offsets.size()) 
 	{
-		throw std::runtime_error("SwappedVector::operator[]");
+		throw std::runtime_error("SwappedVector::operator[], index overflow.");
 	}
 
 	if (!m_itemsFile) 
 	{
-		throw std::runtime_error("SwappedVector::operator[]");
+		throw std::runtime_error("SwappedVector::operator[], no items file.");
 	}
 
-	m_itemsFile.seekg(m_offsets[index]);
-	T tempItem;
-	binary_archive<false> archive(m_itemsFile);
+	T* index_item = NULL;
 
-	if (!do_serialize(archive, tempItem)) 
+	for (size_t i = 0; i < get_prepared_read_count(); i++)
 	{
-		throw std::runtime_error("SwappedVector::operator[]");
+		if (index + i > m_offsets.size() - 1) break;
+
+		m_itemsFile.seekg(m_offsets[index + i]);
+		binary_archive<false> archive(m_itemsFile);
+		T tempItem;
+
+		if (!do_serialize(archive, tempItem))
+		{
+			throw std::runtime_error("SwappedVector::operator[], read item from items file error");
+		}
+
+		T* item = prepare(index + i);
+		if (i == 0) index_item = item;
+
+		std::swap(tempItem, *item);
 	}
 
-	T* item = prepare(index);
-	std::swap(tempItem, *item);
 	++m_cacheMisses;
-	return *item;
+	if ((m_cacheMisses + m_cacheHits) % 1000 == 0) hits();
+	return *index_item;
 }
 
-template<class T> const T& SwappedVector<T>::front() {
+template<class T> T* SwappedVector<T>::prepare(uint64_t index)
+{
+	if (m_cache.size() == m_poolSize)
+	{
+		auto cacheIter = m_cache.begin();
+		m_items.erase(cacheIter->itemIter);
+		m_cache.erase(cacheIter);
+	}
+
+	auto itemIter = m_items.insert(std::make_pair(index, ItemEntry()));
+
+	//already exists
+	if (itemIter.second == false)
+		return &itemIter.first->second.item;
+
+	CacheEntry cacheEntry = { itemIter.first };
+	auto cacheIter = m_cache.insert(m_cache.end(), cacheEntry);
+	itemIter.first->second.cacheIter = cacheIter;
+
+	if (m_cache.size() != m_items.size())
+	{
+		LOG_PRINT_RED("cache size: " << m_cache.size() << " is not equal to item size: " << m_items.size(), LOG_LEVEL_0);
+	}
+
+	return &itemIter.first->second.item;
+}
+
+
+template<class T> const T& SwappedVector<T>::front() 
+{
 	return operator[](0);
 }
 
-template<class T> const T& SwappedVector<T>::back() {
+template<class T> const T& SwappedVector<T>::back() 
+{
 	return operator[](m_offsets.size() - 1);
 }
 
-template<class T> void SwappedVector<T>::clear() {
+template<class T> void SwappedVector<T>::clear() 
+{
 	if (!m_indexesFile) {
-		throw std::runtime_error("SwappedVector::clear");
+		throw std::runtime_error("SwappedVector::clear, no index file.");
 	}
 
 	m_indexesFile.seekp(0);
 	uint64_t count = 0;
 	m_indexesFile.write(reinterpret_cast<char*>(&count), sizeof count);
 	if (!m_indexesFile) {
-		throw std::runtime_error("SwappedVector::clear");
+		throw std::runtime_error("SwappedVector::clear, write index file error.");
 	}
 
 	m_offsets.clear();
@@ -343,39 +409,44 @@ template<class T> void SwappedVector<T>::clear() {
 	m_cache.clear();
 }
 
-template<class T> void SwappedVector<T>::pop_back() {
-	if (!m_indexesFile) {
-		throw std::runtime_error("SwappedVector::pop_back");
+template<class T> void SwappedVector<T>::pop_back() 
+{
+	if (!m_indexesFile) 
+	{
+		throw std::runtime_error("SwappedVector::pop_back, no index file.");
 	}
 
 	m_indexesFile.seekp(0);
 	uint64_t count = m_offsets.size() - 1;
 	m_indexesFile.write(reinterpret_cast<char*>(&count), sizeof count);
-	if (!m_indexesFile) {
-		throw std::runtime_error("SwappedVector::pop_back");
+	if (!m_indexesFile) 
+	{
+		throw std::runtime_error("SwappedVector::pop_back, write index file error.");
 	}
 
 	m_itemsFileSize = m_offsets.back();
 	m_offsets.pop_back();
 	auto itemIter = m_items.find(m_offsets.size());
-	if (itemIter != m_items.end()) {
+	if (itemIter != m_items.end()) 
+	{
 		m_cache.erase(itemIter->second.cacheIter);
 		m_items.erase(itemIter);
 	}
 }
 
-template<class T> void SwappedVector<T>::push_back(const T& item) {
+template<class T> void SwappedVector<T>::push_back(const T& item) 
+{
 	uint64_t itemsFileSize;
 
 	{
 		if (!m_itemsFile) {
-			throw std::runtime_error("SwappedVector::push_back");
+			throw std::runtime_error("SwappedVector::push_back, no items file.");
 		}
 
 		m_itemsFile.seekp(m_itemsFileSize);
 		binary_archive<true> archive(m_itemsFile);
 		if (!do_serialize(archive, *const_cast<T*>(&item))) {
-			throw std::runtime_error("SwappedVector::push_back");
+			throw std::runtime_error("SwappedVector::push_back, save to item file error.");
 		}
 
 		itemsFileSize = m_itemsFile.tellp();
@@ -383,21 +454,21 @@ template<class T> void SwappedVector<T>::push_back(const T& item) {
 
 	{
 		if (!m_indexesFile) {
-			throw std::runtime_error("SwappedVector::push_back");
+			throw std::runtime_error("SwappedVector::push_back, no index file.");
 		}
 
 		m_indexesFile.seekp(sizeof(uint64_t)+sizeof(uint32_t)* m_offsets.size());
 		uint32_t itemSize = static_cast<uint32_t>(itemsFileSize - m_itemsFileSize);
 		m_indexesFile.write(reinterpret_cast<char*>(&itemSize), sizeof itemSize);
 		if (!m_indexesFile) {
-			throw std::runtime_error("SwappedVector::push_back");
+			throw std::runtime_error("SwappedVector::push_back, write itemSize to index file, error.");
 		}
 
 		m_indexesFile.seekp(0);
 		uint64_t count = m_offsets.size() + 1;
 		m_indexesFile.write(reinterpret_cast<char*>(&count), sizeof count);
 		if (!m_indexesFile) {
-			throw std::runtime_error("SwappedVector::push_back");
+			throw std::runtime_error("SwappedVector::push_back, write count to index file, error.");
 		}
 	}
 
@@ -406,18 +477,4 @@ template<class T> void SwappedVector<T>::push_back(const T& item) {
 
 	T* newItem = prepare(m_offsets.size() - 1);
 	*newItem = item;
-}
-
-template<class T> T* SwappedVector<T>::prepare(uint64_t index) {
-	if (m_items.size() == m_poolSize) {
-		auto cacheIter = m_cache.begin();
-		m_items.erase(cacheIter->itemIter);
-		m_cache.erase(cacheIter);
-	}
-
-	auto itemIter = m_items.insert(std::make_pair(index, ItemEntry()));
-	CacheEntry cacheEntry = { itemIter.first };
-	auto cacheIter = m_cache.insert(m_cache.end(), cacheEntry);
-	itemIter.first->second.cacheIter = cacheIter;
-	return &itemIter.first->second.item;
 }

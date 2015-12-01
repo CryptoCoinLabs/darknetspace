@@ -515,6 +515,7 @@ void wallet2::refresh(size_t & blocks_fetched, bool& received_money)
   {
     try
     {
+	  added_blocks = 0;
       pull_blocks(added_blocks);
       blocks_fetched += added_blocks;
       if(!added_blocks)

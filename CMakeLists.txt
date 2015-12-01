@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 2.8.6)
 
 PROJECT(darknetspace)
 
-set(VERSION "0.1")
-# Packaged from commit 23d78a851e3308c4884b29facdecbfcedaf69310
-set(COMMIT  23d78a8)
+set(VERSION "0.2")
+# Packaged from commit 8b4c8c41764fa7b6d252774d8859b2b86fb2756d
+set(COMMIT  8b4c8c4)
 set(REFS " (HEAD, master)")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
