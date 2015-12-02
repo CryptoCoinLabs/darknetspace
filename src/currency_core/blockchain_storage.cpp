@@ -403,9 +403,10 @@ bool blockchain_storage::store_blockchain()
   if (!tools::serialize_obj_to_file(ser, tools::appendPath(m_config_folder, CURRENCY_BLOCKCACHE_FILENAME)))
   {
 	  LOG_ERROR("Failed to save blockchain cache");
+	  m_is_blockchain_storing = false;
 	  return false;
   }
-
+  m_is_blockchain_storing = false;
   LOG_PRINT_L0("Blockchain cache stored OK.");
   return true;
 }
