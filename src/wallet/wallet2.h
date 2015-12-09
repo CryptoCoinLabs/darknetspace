@@ -140,6 +140,7 @@ namespace tools
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<payment_details>& payments) const;
+	void get_payments_all( payment_container& payments) const;
     bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
 	uint64_t get_incoming_tx_size()const { return m_transfer_history.size(); }
@@ -169,12 +170,14 @@ namespace tools
     }
     static void wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists);
     static uint64_t select_indices_for_transfer(std::list<size_t>& ind, std::map<uint64_t, std::list<size_t> >& found_free_amounts, uint64_t needed_money);
+	void detach_blockchain(uint64_t height);
+
   private:
     bool store_keys(const std::string& keys_file_name, const std::string& password);
     bool load_keys(const std::string& keys_file_name, const std::string& password,currency::account_base &account);
     double process_new_transaction(const currency::transaction& tx, uint64_t height, const currency::block& b);
     void process_new_blockchain_entry(const currency::block& b, currency::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height);
-    void detach_blockchain(uint64_t height);
+    
     void get_short_chain_history(std::list<crypto::hash>& ids);
     bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
     bool is_transfer_unlocked(const transfer_details& td) const;
@@ -488,6 +491,10 @@ namespace tools
     }
     bool r = currency::construct_tx(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time);
     CHECK_AND_THROW_WALLET_EX(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time);
+
+	//check_connection
+	CHECK_AND_THROW_WALLET_EX(!check_connection(), error::no_connection_to_daemon, "check_connection error");
+
     update_current_tx_limit();
     CHECK_AND_THROW_WALLET_EX(currency::get_max_transaction_blob_size(get_blockchain_current_height()) <= get_object_blobsize(tx), error::tx_too_big, tx, m_upper_transaction_size_limit);
 

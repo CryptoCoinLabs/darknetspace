@@ -649,6 +649,13 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::clear()
+  {
+	  m_peerlist.clear();
+	  m_blocked_ips.clear();
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::store_config()
   {
 

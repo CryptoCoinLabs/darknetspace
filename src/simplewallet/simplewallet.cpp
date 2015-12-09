@@ -195,8 +195,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("refresh", boost::bind(&simple_wallet::refresh, this, _1), "Resynchronize transactions and balance");
   m_cmd_binder.set_handler("balance", boost::bind(&simple_wallet::show_balance, this, _1), "Show current wallet balance");
   m_cmd_binder.set_handler("incoming_transfers", boost::bind(&simple_wallet::show_incoming_transfers, this, _1), "incoming_transfers [available|unavailable] - Show incoming transfers - all of them or filter them by availability");
-  m_cmd_binder.set_handler("list_recent_transfers", boost::bind(&simple_wallet::list_recent_transfers, this, _1), "list_recent_transfers - Show recent maximum 1000 transfers");
-  m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), "payments <payment_id_1> [<payment_id_2> ... <payment_id_N>] - Show payments <payment_id_1>, ... <payment_id_N>");
+  m_cmd_binder.set_handler("list_recent_transfers", boost::bind(&simple_wallet::list_recent_transfers, this, _1), "list_recent_transfers [count]- Show recent maximum 1000 transfers(default: 10)");
+  m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), "payments <payment_id_1|all> [<payment_id_2> ... <payment_id_N>] - Show payments <payment_id_1>, ... <payment_id_N>");
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), "Show blockchain height");
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer, this, _1), "transfer <mixin_count> <addr_1> <amount_1> [<addr_2> <amount_2> ... <addr_N> <amount_N>] [payment_id] - Transfer <amount_1>,... <amount_N> to <address_1>,... <address_N>, respectively. <mixin_count> is the number of transactions yours is indistinguishable from (from 0 to maximum available)");
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), "set_log <level> - Change current log detalization level, <level> is a number 0-4");
@@ -206,7 +206,32 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("change_password", boost::bind(&simple_wallet::change_password, this, _1), "change_password <old_password> <new_password>");
   m_cmd_binder.set_handler("make_alias", boost::bind(&simple_wallet::make_alias, this, _1), "pay 101 DNC to miners to make an alias. make_alias <alias>  [comment] [viewkey]");
   m_cmd_binder.set_handler("delete_unconfirmed_tx", boost::bind(&simple_wallet::delete_unconfirmed_tx, this, _1), "delete_unconfirmed_tx <txid>, note: delete unconfirmed transaction, txid could be 'all', it means to delete all unconfirmed transactions.");
+  m_cmd_binder.set_handler("rollback", boost::bind(&simple_wallet::rollback, this, _1), "rollback <height>, note: roll back to before height, it means deleting all transactions after the certain height (including the height).");
 
+}
+bool simple_wallet::rollback(const std::vector<std::string> &args)
+{
+	int64_t nHeight = 0;
+	if (args.size() != 1)
+	{
+		fail_msg_writer() << "usage: rollback <height>\n the height must be a number and between 0 and " << m_wallet->get_blockchain_current_height();
+		return true;
+	}
+
+	if (!epee::string_tools::string_to_num_fast(args[0], nHeight))
+	{
+		fail_msg_writer() << "usage: rollback <height>\n the height must be a number and between 0 and " << m_wallet->get_blockchain_current_height();
+		return true;
+	}
+	if (nHeight <= 0 || (uint64_t)nHeight > m_wallet->get_blockchain_current_height())
+	{
+		fail_msg_writer() << "usage: rollback <height>\n the height must be a number and between 0 and " << m_wallet->get_blockchain_current_height();
+		return true;
+	}
+
+	m_wallet->detach_blockchain(nHeight);
+
+	return true;
 }
 bool simple_wallet::delete_unconfirmed_tx(const std::vector<std::string> &args)
 {
@@ -690,9 +715,16 @@ bool print_wti(const tools::wallet_rpc::wallet_transfer_info& wti)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::list_recent_transfers(const std::vector<std::string>& args)
 {
+	int count = 10;
+	if (!args.empty())
+	{
+		epee::string_tools::string_to_num_fast(args[0], count);
+		if (count <= 0 || count > 1000) count = 10;
+	}
+
   std::vector<tools::wallet_rpc::wallet_transfer_info> unconfirmed;
   std::vector<tools::wallet_rpc::wallet_transfer_info> recent;
-  m_wallet->get_recent_transfers_history(recent, 0, 1000);
+  m_wallet->get_recent_transfers_history(recent, 0, count);
   m_wallet->get_unconfirmed_transfers(unconfirmed);
   //workaround for missed fee
   

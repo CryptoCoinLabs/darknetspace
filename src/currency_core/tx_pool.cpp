@@ -43,6 +43,14 @@ namespace currency
 		return bFound;
 	}
 	//---------------------------------------------------------------------------------
+	void  tx_memory_pool::clear()
+	{
+		CRITICAL_REGION_LOCAL(m_transactions_lock);
+		m_transactions.clear();
+		m_spent_key_images.clear();
+		m_aliases_to_txid.clear();
+	}
+	//---------------------------------------------------------------------------------
 	crypto::hash  tx_memory_pool::find_alias(std::string & alias)
 	{
 		//remove_alias
@@ -109,7 +117,7 @@ namespace currency
 			return false;
 		}
 
-		//check key images for transaction if it is not kept by block
+		//check key images for transaction if it is not kept by blockhave_tx_keyimges_as_spent
 		if (!kept_by_block)
 		{
 			if (have_tx_keyimges_as_spent(tx))
@@ -338,7 +346,19 @@ namespace currency
 		{
 			CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
 			if (have_tx_keyimg_as_spent(tokey_in.k_image))
+			{
+				LOG_PRINT_L2("tx_memory_pool: key img spent: " << tokey_in.k_image << ", amount: " << tokey_in.amount);
+				std::stringstream ss;
+				ss << "keyoffsets: ";
+
+				BOOST_FOREACH(const auto& of, tokey_in.key_offsets)
+				{
+					ss << of << " ";
+				}
+				LOG_PRINT_L2(ss.str());
 				return true;
+			}
+				
 		}
 		return false;
 	}

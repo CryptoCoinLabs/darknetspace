@@ -586,6 +586,12 @@ void wallet2::detach_blockchain(uint64_t height)
       ++it;
   }
 
+  auto myit = std::find_if(m_transfer_history.begin(), m_transfer_history.end(), [&](const wallet_rpc::wallet_transfer_info& wti){return wti.height >= height; });
+  i_start = myit - m_transfer_history.begin();
+  m_transfer_history.erase(myit, m_transfer_history.end());
+
+  m_unconfirmed_in_transfers.clear();
+
   LOG_PRINT_L0("Detached blockchain on height " << height << ", transfers detached " << transfers_detached << ", blocks detached " << blocks_detached);
 }
 //----------------------------------------------------------------------------------------------------
@@ -839,12 +845,14 @@ void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers) con
   incoming_transfers = m_transfers;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::get_payments_all(payment_container& payments) const
+{
+	std::for_each(m_payments.begin(), m_payments.end(), [&payments](const payment_container::value_type& x) {payments.insert(std::make_pair(x.first,x.second)); });
+}
 void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments) const
 {
-  auto range = m_payments.equal_range(payment_id);
-  std::for_each(range.first, range.second, [&payments](const payment_container::value_type& x) {
-    payments.push_back(x.second);
-  });
+	auto range = m_payments.equal_range(payment_id);
+	std::for_each(range.first, range.second, [&payments](const payment_container::value_type& x) {payments.push_back(x.second);});
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count, bool bRecent_first)
@@ -877,6 +885,7 @@ void wallet2::wallet_transfer_info_from_unconfirmed_transfer_details(const uncon
   uint64_t ins = 0;
   get_inputs_money_amount(u.m_tx, ins);
   prepare_wti(wti, 0, u.m_sent_time, u.m_tx, outs - u.m_change, money_transfer2_details());
+  wti.is_income = false;
   wti.recipient = u.m_recipient;
   wti.recipient_alias = u.m_recipient_alias;
 }

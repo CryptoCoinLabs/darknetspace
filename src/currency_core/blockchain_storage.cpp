@@ -54,7 +54,7 @@ namespace currency
 
 			if (m_nHeight > nHeight)
 			{
-				LOG_PRINT_L0(operation << "block index error, index: " << m_nHeight + 1 << ", block size: " << nHeight + 1 << ", please exit dnsd and restart it to rebuild internal stuctures... ");
+				LOG_PRINT_L0(operation << "block index error, index: " << m_nHeight + 1 << ", block size: " << nHeight + 1 << ", dnsd will rebuild internal stuctures from blocks. ");
 				return;
 			}
 

@@ -48,8 +48,20 @@ public:
     m_cmd_binder.set_handler("height", boost::bind(&daemon_cmmands_handler::height, this, _1), "Print the blockchain height");
     m_cmd_binder.set_handler("alias", boost::bind(&daemon_cmmands_handler::alias, this, _1), "Print all alias");
 	m_cmd_binder.set_handler("getinfo", boost::bind(&daemon_cmmands_handler::getinfo, this, _1), "Print many statistics data");
-  }
+	m_cmd_binder.set_handler("clear_pool", boost::bind(&daemon_cmmands_handler::clear_pool, this, _1), "Clear pool transactions and keyimages");
+	m_cmd_binder.set_handler("clear_peerlist", boost::bind(&daemon_cmmands_handler::clear_peerlist, this, _1), "Clear peers list");
+	}
 
+	bool clear_pool(const std::vector<std::string>& args)
+	{
+		m_srv.get_payload_object().get_core().get_txpool().clear();
+		return true;
+	}
+	bool clear_peerlist(const std::vector<std::string>& args)
+	{
+		m_srv.clear();
+		return true;
+	}
 bool getinfo(const std::vector<std::string>& args)
  {
 	  currency::COMMAND_RPC_GET_INFO::request req;

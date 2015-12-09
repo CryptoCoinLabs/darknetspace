@@ -69,6 +69,7 @@ namespace nodetool
 
     static void init_options(boost::program_options::options_description& desc);
 
+	void clear();
     bool run(bool sync_call = true);
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();

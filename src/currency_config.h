@@ -109,7 +109,7 @@
 
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
 #define P2P_IP_FAILS_BEFOR_BLOCK                        10
-#define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
+#define P2P_IDLE_CONNECTION_KILL_INTERVAL               (10*60) //10 minutes
 
 
 /* This money will go to growth of the project */

@@ -39,6 +39,7 @@ namespace nodetool
   class peerlist_manager
   {
   public: 
+	void clear(){ CRITICAL_REGION_LOCAL(m_peerlist_lock); m_peers_white.clear(); m_peers_gray.clear(); }
     bool init(bool allow_local_ip);
     bool deinit();
     size_t get_white_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_white.size();}

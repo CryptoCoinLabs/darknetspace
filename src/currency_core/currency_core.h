@@ -43,6 +43,7 @@ namespace currency
 
 
      miner& get_miner(){return m_miner;}
+	 tx_memory_pool& get_txpool(){ return m_mempool; }
      static void init_options(boost::program_options::options_description& desc);
      bool init(const boost::program_options::variables_map& vm);
      bool set_genesis_block(const block& b);

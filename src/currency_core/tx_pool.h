@@ -58,6 +58,7 @@ namespace currency
 
     void lock();
     void unlock();
+	void clear();
 
     // load/store operations
     bool init(const std::string& config_folder);
