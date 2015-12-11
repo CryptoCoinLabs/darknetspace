@@ -298,7 +298,7 @@ template<class T> typename SwappedVector<T>::const_iterator SwappedVector<T>::en
 #define MINIMUM_CACHE_LOAD_NUM 100
 template<class T> size_t SwappedVector<T>::get_prepared_read_count()
 {
-	return (m_poolSize / 10 > MINIMUM_CACHE_LOAD_NUM ? m_poolSize / 10 : MINIMUM_CACHE_LOAD_NUM);
+	return (m_poolSize / 100 > MINIMUM_CACHE_LOAD_NUM ? m_poolSize / 100 : MINIMUM_CACHE_LOAD_NUM);
 }
 
 template<class T> const T& SwappedVector<T>::operator[](uint64_t index) 
