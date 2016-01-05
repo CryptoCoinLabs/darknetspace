@@ -81,7 +81,7 @@ namespace currency {
 
 	  //load low part
 	  x = x << 64;
-	  x += n.lower();
+	  x += (uint64_t)n.lower();
 
 	  return x;
   }

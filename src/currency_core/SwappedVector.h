@@ -145,7 +145,7 @@ public:
 
 	bool open(const std::string& itemFileName, const std::string& indexFileName, size_t poolSize);
 	void close();
-	void hits();
+	void hits(uint64_t index, bool bHited = true);
 	size_t get_prepared_read_count();
 
 	bool empty() const;
@@ -260,9 +260,10 @@ template<class T> bool SwappedVector<T>::open(const std::string& itemFileName, c
 	return true;
 }
 
-template<class T> void SwappedVector<T>::hits()
+template<class T> void SwappedVector<T>::hits(uint64_t index, bool bHited)
 {
-	LOG_PRINT_L1("SwappedVector size: " << m_offsets.size() <<  
+	LOG_PRINT_L1("Index: " << index() << "Hit: " << bHited ? "true" : "false" << 
+				 "SwappedVector size: " << m_offsets.size() << 
 				 ", poolsize: " << m_poolSize << 
 				 ", prepared read count: " << get_prepared_read_count() <<
 				 ", cache hits : " << m_cacheHits << 
@@ -272,7 +273,7 @@ template<class T> void SwappedVector<T>::hits()
 
 template<class T> void SwappedVector<T>::close() 
 {
-	hits();
+	//hits();
 }
 
 template<class T> bool SwappedVector<T>::empty() const 
@@ -312,7 +313,7 @@ template<class T> const T& SwappedVector<T>::operator[](uint64_t index)
 		}
 
 		++m_cacheHits;
-		if ((m_cacheMisses + m_cacheHits) % 1000 == 0) hits();
+		if ((m_cacheMisses + m_cacheHits) % 1000 == 0) hits(index, true);
 		return itemIter->second.item;
 	}
 
@@ -348,7 +349,7 @@ template<class T> const T& SwappedVector<T>::operator[](uint64_t index)
 	}
 
 	++m_cacheMisses;
-	if ((m_cacheMisses + m_cacheHits) % 1000 == 0) hits();
+	hits(index,false);
 	return *index_item;
 }
 
