@@ -51,13 +51,12 @@ namespace currency
 			operation = "- loading ";
 			ar & m_storedLastBlockHash;
 			ar & m_nHeight;
-
-			if (m_nHeight > nHeight)
-			{
-				LOG_PRINT_L0(operation << "block index error, index: " << m_nHeight + 1 << ", block size: " << nHeight + 1 << ", dnsd will rebuild internal stuctures from blocks. ");
-				return;
-			}
-
+			//try not to rebuild index and cache
+			//if (m_nHeight > nHeight)
+			//{
+			//	LOG_PRINT_L0(operation << "block index error, index: " << m_nHeight + 1 << ", block size: " << nHeight + 1 << ", dnsd will rebuild internal stuctures from blocks. ");
+			//	return;
+			//}
 		}
 		else
 		{
@@ -88,6 +87,18 @@ namespace currency
 
 		LOG_PRINT_L1(operation << "block index...");
 		ar & m_bs.m_blocks_index;
+
+		if (Archive::is_loading::value && m_nHeight > nHeight)
+		{
+			LOG_PRINT_L0(operation << "block index error, index: try to fix it ");
+
+			while (m_nHeight > nHeight)
+			{
+				m_bs.m_blocks_index.pop();
+				m_nHeight--;
+			}
+		}
+
 
 		if (Archive::is_loading::value)
 		{
@@ -306,7 +317,7 @@ bool blockchain_storage::init(const std::string& config_folder)
   m_config_folder = config_folder;
 
 #ifdef _WINDOWS
-  if (!m_blocks.open(tools::appendPath(config_folder, CURRENCY_BLOCKS_FILENAME), tools::appendPath(config_folder, CURRENCY_BLOCKINDEX_FILENAME), 10240)) 
+  if (!m_blocks.open(tools::appendPath(config_folder, CURRENCY_BLOCKS_FILENAME), tools::appendPath(config_folder, CURRENCY_BLOCKINDEX_FILENAME), 102400)) 
 #else
   if (!m_blocks.open(tools::appendPath(config_folder, CURRENCY_BLOCKS_FILENAME), tools::appendPath(config_folder, CURRENCY_BLOCKINDEX_FILENAME), 102400))
 #endif
@@ -385,6 +396,7 @@ bool blockchain_storage::init(const std::string& config_folder)
   }
 
   update_next_comulative_size_limit();
+  m_is_in_checkpoint_zone = m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height());
 
   uint64_t timestamp_diff = time(NULL) - m_blocks.back().bl.timestamp;
   if (!m_blocks.back().bl.timestamp) 
@@ -1381,7 +1393,7 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
     }
 
 	bei.cumulative_difficulty = alt_chain.size() ? it_prev->second.cumulative_difficulty: m_blocks[nHeight].cumulative_difficulty;
-    bei.cumulative_difficulty += current_diff;
+    ((uint128_t)bei.cumulative_difficulty) += current_diff;
 
 #ifdef _DEBUG
     auto i_dres = m_alternative_chains.find(id);

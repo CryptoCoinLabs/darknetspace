@@ -262,8 +262,9 @@ template<class T> bool SwappedVector<T>::open(const std::string& itemFileName, c
 
 template<class T> void SwappedVector<T>::hits(uint64_t index, bool bHited)
 {
-	LOG_PRINT_L1("Index: " << index() << "Hit: " << bHited ? "true" : "false" << 
-				 "SwappedVector size: " << m_offsets.size() << 
+	LOG_PRINT_L1("Index: " << index << 
+				 ", Hit: " << bHited  << 
+				 ", SwappedVector size: " << m_offsets.size() << 
 				 ", poolsize: " << m_poolSize << 
 				 ", prepared read count: " << get_prepared_read_count() <<
 				 ", cache hits : " << m_cacheHits << 
@@ -296,10 +297,11 @@ template<class T> typename SwappedVector<T>::const_iterator SwappedVector<T>::en
 	return const_iterator(this, m_offsets.size());
 }
 
-#define MINIMUM_CACHE_LOAD_NUM 100
+#define MINIMUM_CACHE_LOAD_NUM 1000
+#define MINIMUM_CACHE_LOAD_PERCENT 0.1
 template<class T> size_t SwappedVector<T>::get_prepared_read_count()
 {
-	return (m_poolSize / 100 > MINIMUM_CACHE_LOAD_NUM ? m_poolSize / 100 : MINIMUM_CACHE_LOAD_NUM);
+	return (m_poolSize * MINIMUM_CACHE_LOAD_PERCENT > MINIMUM_CACHE_LOAD_NUM ? m_poolSize * MINIMUM_CACHE_LOAD_PERCENT : MINIMUM_CACHE_LOAD_NUM);
 }
 
 template<class T> const T& SwappedVector<T>::operator[](uint64_t index) 
