@@ -228,7 +228,7 @@ namespace currency {
 	boost::multiprecision::uint128_t b128 = uint128_n2b(res);
 	boost::multiprecision::uint256_t b256 = b128;
 	if (b256 > max128bit)
-		return max128bit; // to behave like previuos implementation, may be better return max128bit?
+		return 0; // to behave like previuos implementation, may be better return max128bit?
     return res;
   }
 
