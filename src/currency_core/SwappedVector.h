@@ -331,6 +331,19 @@ template<class T> const T& SwappedVector<T>::operator[](uint64_t index)
 
 	T* index_item = NULL;
 
+	m_itemsFile.seekg(m_offsets[index]);
+	binary_archive<false> archive(m_itemsFile);
+	T tempItem;
+
+	if (!do_serialize(archive, tempItem))
+	{
+		throw std::runtime_error("SwappedVector::operator[], read item from items file error");
+	}
+
+	T* item = prepare(index);
+	std::swap(tempItem, *item);
+
+	/*
 	for (size_t i = 0; i < get_prepared_read_count(); i++)
 	{
 		if (index + i > m_offsets.size() - 1) break;
@@ -348,11 +361,11 @@ template<class T> const T& SwappedVector<T>::operator[](uint64_t index)
 		if (i == 0) index_item = item;
 
 		std::swap(tempItem, *item);
-	}
+	}*/
 
 	++m_cacheMisses;
 	hits(index,false);
-	return *index_item;
+	return *item;
 }
 
 template<class T> T* SwappedVector<T>::prepare(uint64_t index)

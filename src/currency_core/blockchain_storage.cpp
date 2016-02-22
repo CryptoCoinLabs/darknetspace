@@ -316,12 +316,7 @@ bool blockchain_storage::init(const std::string& config_folder)
 
   m_config_folder = config_folder;
 
-#ifdef _WINDOWS
-  if (!m_blocks.open(tools::appendPath(config_folder, CURRENCY_BLOCKS_FILENAME), tools::appendPath(config_folder, CURRENCY_BLOCKINDEX_FILENAME), 102400)) 
-#else
   if (!m_blocks.open(tools::appendPath(config_folder, CURRENCY_BLOCKS_FILENAME), tools::appendPath(config_folder, CURRENCY_BLOCKINDEX_FILENAME), 102400))
-#endif
-
   {
 	  LOG_ERROR("Open blockchain file and index file error, maybe it is in use. ");
 	  return false;

@@ -277,6 +277,7 @@ namespace currency
 	//---------------------------------------------------------------------------------
 	bool tx_memory_pool::remove_stuck_transactions()
 	{
+		LOG_PRINT_L2("tx_memory_pool::remove_stuck_transactions()");
 		CRITICAL_REGION_LOCAL(m_transactions_lock);
 		for (auto it = m_transactions.begin(); it != m_transactions.end();)
 		{
@@ -358,7 +359,6 @@ namespace currency
 				LOG_PRINT_L2(ss.str());
 				return true;
 			}
-				
 		}
 		return false;
 	}
