@@ -73,11 +73,13 @@ namespace currency
 			}
 
 			//bigger than or equalt to block size, need to rebulid all blockcache.
+			m_bs.fix_blocks_index();
+			/*
 			if (m_bs.m_blocks_index.size() != m_bs.m_blocks.size())
 			{
 				LOG_PRINT_L0(operation << "block index error, index: " << m_bs.m_blocks_index.size() << ", block size: " << m_bs.m_blocks.size() << ", please exit dnsd and restart it to rebuild internal stuctures... ");
 				return;
-			}
+			}*/
 			m_storedLastBlockHash = lastBlockHash;
 			m_nHeight = nHeight;
 
@@ -337,6 +339,7 @@ bool blockchain_storage::init(const std::string& config_folder)
 		  LOG_PRINT_L0("Rebuild internal structures...");
 		  clear_all_cache_data();
 		  CHECK_AND_ASSERT_MES(rebuildcache(), false, "Failed to rebuild cache from old blockchain.");
+		  store_blockchain();
 	  }
   }
   else 
@@ -370,6 +373,7 @@ bool blockchain_storage::init(const std::string& config_folder)
 		  }
 
 		  CHECK_AND_ASSERT_MES(rebuildcache(b), false, "Failed to rebuild cache.");
+		  store_blockchain();
 	  }
   }
   block bl = boost::value_initialized<block>();
@@ -2445,6 +2449,28 @@ bool blockchain_storage::prune_aged_alt_blocks()
 
   return true;
 }
+
+bool blockchain_storage::fix_blocks_index()
+{
+	if (m_blocks_index.size() == m_blocks.size())
+		return true;
+	else if (m_blocks_index.size() > m_blocks.size())
+	{
+		LOG_PRINT_RED("the inde of m_blocks_index is bigger than that of the blocks. try to fix it...", LOG_LEVEL_0);
+		while (m_blocks_index.size() > m_blocks.size())
+			m_blocks_index.pop();
+
+		return true;
+	}
+	else if (m_blocks_index.size() < m_blocks.size())
+	{
+		LOG_PRINT_RED("block and index not corresponding. Rebuilding internal structures...", LOG_LEVEL_0);
+		clear_all_cache_data();
+		CHECK_AND_ASSERT_MES(rebuildcache(0), false, "Failed to rebuild cache.");
+		store_blockchain();
+	}
+	return true;
+}
 //------------------------------------------------------------------
 bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc)
 {
@@ -2618,12 +2644,7 @@ bool blockchain_storage::handle_block_to_main_chain(const block& bl, const crypt
 
   m_blocks.push_back(bei);
 
-  if (m_blocks_index.size() != m_blocks.size())
-  {
-	  LOG_PRINT_RED("block and index not corresponding. Rebuilding internal structures...", LOG_LEVEL_0);
-	  clear_all_cache_data();
-	  CHECK_AND_ASSERT_MES(rebuildcache(0), false, "Failed to rebuild cache.");
-  }
+  fix_blocks_index();
 
   update_next_comulative_size_limit();
   TIME_MEASURE_FINISH(block_processing_time);

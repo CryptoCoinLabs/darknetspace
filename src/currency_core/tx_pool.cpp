@@ -130,7 +130,7 @@ namespace currency
 			//transaction spam protection, soft rule
 			if (inputs_amount - outputs_amount < TX_POOL_MINIMUM_FEE)
 			{
-				LOG_ERROR("Transaction with id= " << id << " has to small fee: " << inputs_amount - outputs_amount << ", expected fee: " << DEFAULT_FEE);
+				LOG_ERROR("Transaction with id= " << id << " has too small fee: " << inputs_amount - outputs_amount << ", expected fee: " << DEFAULT_FEE);
 				tvc.m_verifivation_failed = true;
 				return false;
 			}
@@ -289,6 +289,7 @@ namespace currency
 			{
 				LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age);
 				remove_alias_tx_pair(it->first);
+				remove_transaction_keyimages(it->second.tx);
 				m_transactions.erase(it++);
 
 			}

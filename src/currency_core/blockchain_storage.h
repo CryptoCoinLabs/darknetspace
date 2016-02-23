@@ -177,6 +177,7 @@ namespace currency
 		bool deinit();
 
 		bool rebuildcache(uint64_t start_height = 0);
+		bool fix_blocks_index();
 
 		void set_checkpoints(checkpoints&& chk_pts);
 		checkpoints& get_checkpoints() { return m_checkpoints; }
