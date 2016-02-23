@@ -105,7 +105,6 @@ namespace currency
 
     if(m_core.have_block(hshd.top_id))  
     {
-
       context.m_state = currency_connection_context::state_normal;
       if(is_inital)
         on_connection_synchronized();
@@ -113,6 +112,12 @@ namespace currency
     }
 
     int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(m_core.get_current_blockchain_height());
+	if (diff < 0)
+	{
+		LOG_PRINT_CCONTEXT_L2("Remote node have shorter blockchain ( " << hshd.current_height << ") " <<
+			"that local (" << m_core.get_current_blockchain_height() << ")");
+		return true;
+	}
     LOG_PRINT_CCONTEXT_YELLOW("Sync data returned unknown top block: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
       << " [" << std::abs(diff) << " blocks (" << diff / (24 * 60 * 60 / DIFFICULTY_TARGET) << " days) "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
