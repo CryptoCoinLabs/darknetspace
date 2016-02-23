@@ -284,6 +284,7 @@ namespace currency
 			uint64_t tx_age = time(nullptr) - it->second.receive_time;
 
 			if ((tx_age > CURRENCY_MEMPOOL_TX_LIVETIME && !it->second.kept_by_block) ||
+				((it->second.max_used_block_height < m_blockchain.get_current_blockchain_height() - CURRENCY_MEMPOOL_TX_LIVETIME / DIFFICULTY_TARGET) && !it->second.kept_by_block) || 
 				(tx_age > CURRENCY_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && it->second.kept_by_block))
 			{
 				LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age);
