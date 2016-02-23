@@ -287,7 +287,7 @@ namespace currency
 				((it->second.max_used_block_height < m_blockchain.get_current_blockchain_height() - CURRENCY_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME / DIFFICULTY_TARGET) && !it->second.kept_by_block) ||
 				(tx_age > CURRENCY_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && it->second.kept_by_block))
 			{
-				LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age);
+				LOG_PRINT_L0("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age << ", max_used_block_height:" << it->second.max_used_block_height);
 				remove_alias_tx_pair(it->first);
 				remove_transaction_keyimages(it->second.tx);
 				m_transactions.erase(it++);
