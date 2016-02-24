@@ -51,12 +51,6 @@ namespace currency
 			operation = "- loading ";
 			ar & m_storedLastBlockHash;
 			ar & m_nHeight;
-			//try not to rebuild index and cache
-			//if (m_nHeight > nHeight)
-			//{
-			//	LOG_PRINT_L0(operation << "block index error, index: " << m_nHeight + 1 << ", block size: " << nHeight + 1 << ", dnsd will rebuild internal stuctures from blocks. ");
-			//	return;
-			//}
 		}
 		else
 		{
@@ -73,13 +67,11 @@ namespace currency
 			}
 
 			//bigger than or equalt to block size, need to rebulid all blockcache.
-			m_bs.fix_blocks_index();
-			/*
 			if (m_bs.m_blocks_index.size() != m_bs.m_blocks.size())
 			{
 				LOG_PRINT_L0(operation << "block index error, index: " << m_bs.m_blocks_index.size() << ", block size: " << m_bs.m_blocks.size() << ", please exit dnsd and restart it to rebuild internal stuctures... ");
 				return;
-			}*/
+			}
 			m_storedLastBlockHash = lastBlockHash;
 			m_nHeight = nHeight;
 
@@ -118,7 +110,7 @@ namespace currency
 			//if stored last block hash is not equal to current block hash, there is something wrong
 			if (m_storedLastBlockHash != lastBlockHash)
 			{
-				//bigger than or equalt to block size, need to rebulid all blockcache.
+				//bigger than or equal to block size, need to rebulid all blockcache.
 				if (m_bs.m_blocks_index.size() >= m_bs.m_blocks.size())
 				{
 					m_bs.m_blocks_index.clear();
@@ -2453,7 +2445,9 @@ bool blockchain_storage::prune_aged_alt_blocks()
 bool blockchain_storage::fix_blocks_index()
 {
 	if (m_blocks_index.size() == m_blocks.size())
+	{
 		return true;
+	}
 	else if (m_blocks_index.size() > m_blocks.size())
 	{
 		LOG_PRINT_RED("the inde of m_blocks_index is bigger than that of the blocks. try to fix it...", LOG_LEVEL_0);
@@ -2464,10 +2458,23 @@ bool blockchain_storage::fix_blocks_index()
 	}
 	else if (m_blocks_index.size() < m_blocks.size())
 	{
-		LOG_PRINT_RED("block and index not corresponding. Rebuilding internal structures...", LOG_LEVEL_0);
-		clear_all_cache_data();
-		CHECK_AND_ASSERT_MES(rebuildcache(0), false, "Failed to rebuild cache.");
-		store_blockchain();
+		LOG_PRINT_RED("the inde of m_blocks_index is smaller than that of the blocks. try to fix it...", LOG_LEVEL_0);
+		uint64_t start_height = m_blocks_index.size();
+		bool bSuccess = false;
+		while (start_height < m_blocks.size())
+		{
+			auto hash = get_block_hash(m_blocks[start_height].bl);
+			bSuccess = m_blocks_index.push(hash);
+			start_height++;
+		}
+
+		if (m_blocks_index.size() != m_blocks.size())
+		{
+			LOG_PRINT_RED("Rebuilding internal structures...", LOG_LEVEL_0);
+			clear_all_cache_data();
+			CHECK_AND_ASSERT_MES(rebuildcache(0), false, "Failed to rebuild cache.");
+			store_blockchain();
+		}
 	}
 	return true;
 }
