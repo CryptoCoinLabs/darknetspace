@@ -106,6 +106,8 @@ namespace tools
         FIELD(account_data)
       END_SERIALIZE()
     };
+
+	bool recharge_transfers(const currency::transaction & tx);
 	bool changepassword(const std::string& old_password, const std::string& new_password);
     void generate(const std::string& wallet, const std::string& password);
     void load(const std::string& wallet, const std::string& password);    

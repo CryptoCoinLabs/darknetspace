@@ -220,6 +220,27 @@ double wallet2::process_new_transaction(const currency::transaction& tx, uint64_
 	double db_tx_money = (double)(tx_money_got_in_outs/COIN-tx_money_spent_in_ins/COIN);
 	return std::max(db_tx_money,0.0);
 }
+
+bool wallet2::recharge_transfers(const currency::transaction & tx)
+{
+	// check all outputs for spending (compare key images)
+	uint64_t tx_money_spent_in_ins = 0;
+	BOOST_FOREACH(auto& in, tx.vin)
+	{
+		if (in.type() != typeid(currency::txin_to_key))
+			continue;
+		auto it = m_key_images.find(boost::get<currency::txin_to_key>(in).k_image);
+		if (it != m_key_images.end())
+		{
+			//LOG_PRINT_L3("Recharge money because of deleting unconfirmed transaction: " << print_money(boost::get<currency::txin_to_key>(in).amount) << ", with tx: " << get_transaction_hash(tx));
+			tx_money_spent_in_ins += boost::get<currency::txin_to_key>(in).amount;
+			transfer_details& td = m_transfers[it->second];
+			td.m_spent = false;
+		}
+	}
+	LOG_PRINT_L2("Recharge money because of deleting unconfirmed transaction: " << currency::get_transaction_hash(tx) << ", money: " << tx_money_spent_in_ins);
+	return true;
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::prepare_wti(wallet_rpc::wallet_transfer_info& wti, uint64_t height, uint64_t timestamp, const currency::transaction& tx, uint64_t amount, const money_transfer2_details& td)
 {
@@ -265,10 +286,16 @@ bool wallet2::delete_unconfirmed_tx(const std::string & txid)
 {
 	crypto::hash id;
 	std::string tx_hash = txid;
+	std::string recipient,recipient_alias;
 	std::transform(tx_hash.begin(), tx_hash.end(), tx_hash.begin(), tolower);
 	if (tx_hash == std::string("all"))
 	{
-		m_unconfirmed_txs.clear();
+		for (auto it = m_unconfirmed_txs.begin(); it != m_unconfirmed_txs.end();)
+		{
+			recharge_transfers(it->second.m_tx);
+			it = m_unconfirmed_txs.erase(it);
+		}
+			
 		return true;
 	}
 
@@ -288,6 +315,7 @@ bool wallet2::delete_unconfirmed_tx(const std::string & txid)
 	auto unconf_it = m_unconfirmed_txs.find(id);
 	if (unconf_it != m_unconfirmed_txs.end())
 	{
+		recharge_transfers(unconf_it->second.m_tx);
 		m_unconfirmed_txs.erase(unconf_it);
 		return true;
 	}
@@ -832,7 +860,6 @@ uint64_t wallet2::balance()
   BOOST_FOREACH(auto& td, m_transfers)
     if(!td.m_spent)
       amount += td.amount();
-
 
   BOOST_FOREACH(auto& utx, m_unconfirmed_txs)
     amount+= utx.second.m_change;
