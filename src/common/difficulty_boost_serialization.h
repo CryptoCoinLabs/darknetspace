@@ -12,7 +12,7 @@ namespace boost
   {
     //---------------------------------------------------
     template <class archive_t>
-    inline void serialize(archive_t &a, currency::old_wide_difficulty_type &x, const boost::serialization::version_type ver)
+    inline void serialize(archive_t &a, currency::wide_difficulty_type &x, const boost::serialization::version_type ver)
     {
       if(archive_t::is_loading::value)
       {
@@ -42,7 +42,7 @@ namespace boost
         std::cout << "storing" << ENDL;
 #endif
         //store high part
-        currency::old_wide_difficulty_type x_ = x;
+        currency::wide_difficulty_type x_ = x;
 #ifdef DEBUG_DIFFICULTY_SERIALIZATION
         std::cout << "original: " << std::hex << x_ << ENDL;
 #endif

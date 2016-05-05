@@ -543,8 +543,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
-#ifndef TESTNET
-
+#ifndef TESTNET	  
+	  
     ADD_HARDCODED_SEED_NODE("106.187.55.89:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));  
 	ADD_HARDCODED_SEED_NODE("104.200.21.137:" STRINGIFY_EXPAND(P2P_DEFAULT_PORT));
 

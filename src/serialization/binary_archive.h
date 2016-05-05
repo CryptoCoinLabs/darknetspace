@@ -90,6 +90,20 @@ struct binary_archive<false> : public binary_archive_base<std::istream, false>
     typedef std::istreambuf_iterator<char> it;
     tools::read_varint(it(stream_), it(), v); // XXX handle failure
   }
+
+  template <class T>
+  void serialize_uint128_t(T &v)
+  {	
+	uint64_t nUpper = 0, nLower = 0;
+
+    serialize_varint(nUpper);
+
+    serialize_varint(nLower);
+    
+	uint128_t nTemp(nUpper, nLower);
+	v = uint128_n2b(nTemp);
+  }		
+
   void begin_array(size_t &s)
   {
     serialize_varint(s);
@@ -151,6 +165,21 @@ struct binary_archive<true> : public binary_archive_base<std::ostream, true>
     typedef std::ostreambuf_iterator<char> it;
     tools::write_varint(it(stream_), v);
   }
+
+  template <class T>
+  void serialize_uint128_t(T &v)
+  {
+	uint64_t lowpart, highpart;
+	uint128_t value = uint128_b2n(v);
+
+	highpart = value.upper();
+	lowpart = value.lower();
+
+    serialize_varint(highpart);
+
+    serialize_varint(lowpart);
+  }	
+
   void begin_array(size_t s)
   {
     serialize_varint(s);

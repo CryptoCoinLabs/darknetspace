@@ -156,7 +156,12 @@ namespace currency
 				}
 				//anyway add this transaction to pool, because it related to block
 				auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
-				CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
+				if (!txd_p.second)
+				{
+					return false;
+				}
+
+				//CHECK_AND_ASSERT_MES(txd_p.second, false, "transaction already exists at inserting in memory pool");
 				txd_p.first->second.blob_size = blob_size;
 				txd_p.first->second.tx = tx;
 				txd_p.first->second.fee = inputs_amount - outputs_amount;
@@ -186,7 +191,12 @@ namespace currency
 
 			//update transactions container
 			auto txd_p = m_transactions.insert(transactions_container::value_type(id, tx_details()));
-			CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
+			if (!txd_p.second)
+			{
+				return false;
+			}
+
+			//CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
 			txd_p.first->second.blob_size = blob_size;
 			txd_p.first->second.tx = tx;
 			txd_p.first->second.kept_by_block = kept_by_block;

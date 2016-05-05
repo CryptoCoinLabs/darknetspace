@@ -36,8 +36,9 @@ namespace tools
 
     std::ifstream data_file;  
     data_file.open( file_path, std::ios_base::binary | std::ios_base::in);
-    if(data_file.fail())
-      return false;
+	if (data_file.fail())
+		return false;
+
     boost::archive::binary_iarchive a(data_file);
 
     a >> obj;

@@ -365,6 +365,7 @@ template<class T> const T& SwappedVector<T>::operator[](uint64_t index)
 
 	++m_cacheMisses;
 	hits(index,false);
+
 	return *item;
 }
 

@@ -241,10 +241,12 @@ bool blockchain_storage::rebuildcache(uint64_t start_height)
 		{
 			std::cout << "Height " << b << " of " << m_blocks.size() << '\r';
 		}
+
 		const BlockEntry& block = m_blocks[b];
 		crypto::hash blockHash = get_block_hash(block.bl);
 
 		m_blocks_index.push(blockHash);
+
 		for (uint16_t t = 0; t < block.transactions.size(); ++t)
 		{
 			const TransactionEntry& transaction = block.transactions[t];
@@ -268,6 +270,7 @@ bool blockchain_storage::rebuildcache(uint64_t start_height)
 					m_spent_keys.insert(boost::get<txin_to_key>(i).k_image);
 				}
 			}
+
 			//m_outputs
 			for (uint16_t o = 0; o < transaction.tx.vout.size(); ++o)
 			{
@@ -438,7 +441,7 @@ bool blockchain_storage::pop_block_from_blockchain()
 
   //remove from index
   auto bl_ind = m_blocks_index.getTailId();
-  CHECK_AND_ASSERT_MES(bl_ind != get_block_hash(bei.bl), false, "pop_block_from_blockchain: blockchain id not found in index");
+  CHECK_AND_ASSERT_MES(bl_ind == get_block_hash(bei.bl), false, "pop_block_from_blockchain: blockchain id not found in index");
   m_blocks_index.pop();
   //pop block from core
   m_blocks.pop_back();
@@ -614,7 +617,7 @@ bool blockchain_storage::purge_transaction_from_blockchain(const crypto::hash& t
   {
     currency::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
     bool r = m_tx_pool.add_tx(tx, tvc, true);
-    CHECK_AND_ASSERT_MES(r, false, "purge_block_data_from_blockchain: failed to add transaction to transaction pool");
+ //   CHECK_AND_ASSERT_MES(r, false, "purge_block_data_from_blockchain: failed to add transaction to transaction pool");
   }
 
   bool res = pop_transaction_from_global_index(tx, tx_id);
@@ -1384,7 +1387,7 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
     }
 
 	bei.cumulative_difficulty = alt_chain.size() ? it_prev->second.cumulative_difficulty: m_blocks[nHeight].cumulative_difficulty;
-    ((uint128_t)bei.cumulative_difficulty) += current_diff;
+    (bei.cumulative_difficulty) += current_diff;
 
 #ifdef _DEBUG
     auto i_dres = m_alternative_chains.find(id);
@@ -2872,7 +2875,7 @@ void blockchain_storage::serialize(archive_t & ar, const unsigned int version)
 
 		block.height = b;
 		block.block_cumulative_size = blocks[b].block_cumulative_size;
-		block.cumulative_difficulty = uint128_b2n(blocks[b].cumulative_difficulty);
+		block.cumulative_difficulty = blocks[b].cumulative_difficulty;
 		block.already_generated_coins = blocks[b].already_generated_coins;
 		block.already_donated_coins = blocks[b].already_donated_coins;
 		block.scratch_offset = blocks[b].scratch_offset;
@@ -2977,4 +2980,8 @@ bool blockchain_storage::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to
 	return true;
 }
 
-
+bool blockchain_storage::rollback_blockchain(size_t rollback_height)
+{
+	std::list<block> listOtherChain;
+	return rollback_blockchain_switching(listOtherChain, rollback_height);
+}

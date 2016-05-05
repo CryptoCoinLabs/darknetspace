@@ -109,7 +109,7 @@ namespace currency {
   {
     if (difficulty < max64bit)
 	{ // if can convert to small difficulty - do it
-	  std::uint64_t dl = (uint64_t)difficulty;
+	  std::uint64_t dl = difficulty.convert_to<std::uint64_t>();
       uint64_t low, high, top, cur;
 
       // First check the highest word, this will most likely fail for a random hash.
@@ -139,8 +139,7 @@ namespace currency {
       hashVal |= swap64le(((const uint64_t *) &hash)[3 - i]);
       hashVal << 64;
     }
-	boost::multiprecision::uint128_t diff = uint128_n2b(difficulty);
-	return (hashVal * diff > max256bit);
+    return (hashVal * difficulty > max256bit);
   }
 
   difficulty_type next_difficulty_old(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
@@ -223,13 +222,10 @@ namespace currency {
     }
     wide_difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     assert(total_work > 0);
-	wide_difficulty_type res = (total_work * target_seconds + time_span - 1) / time_span;
-
-	boost::multiprecision::uint128_t b128 = uint128_n2b(res);
-	boost::multiprecision::uint256_t b256 = b128;
-	if (b256 > max128bit)
-		return 0; // to behave like previuos implementation, may be better return max128bit?
-    return res;
+    boost::multiprecision::uint256_t res =  (boost::multiprecision::uint256_t(total_work) * target_seconds + time_span - 1) / time_span;
+    if(res > max128bit)
+	return 0; // to behave like previuos implementation, may be better return max128bit?
+    return res.convert_to<wide_difficulty_type>();
   }
 
   difficulty_type next_difficulty_old(vector<uint64_t> timestamps, vector<difficulty_type> cumulative_difficulties)

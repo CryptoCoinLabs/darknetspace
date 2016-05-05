@@ -80,7 +80,7 @@ namespace currency
 				m_spent_flags = tce.m_spent_flags;
 				return *this;
 			}
-			
+		
 			template<class Archive> void serialize(Archive & ar, unsigned int version)
 			{
 				ar & tx;
@@ -104,7 +104,7 @@ namespace currency
 			block   bl;
 			uint64_t height;
 			size_t block_cumulative_size;
-			old_wide_difficulty_type cumulative_difficulty;
+			wide_difficulty_type cumulative_difficulty;
 			uint64_t already_generated_coins;
 			uint64_t already_donated_coins;
 			uint64_t scratch_offset;
@@ -112,6 +112,7 @@ namespace currency
 
 		struct block_extended_info
 		{
+		public:
 			block   bl;
 			uint64_t height;
 			size_t block_cumulative_size;
@@ -135,7 +136,7 @@ namespace currency
 				FIELD(bl)
 				VARINT_FIELD(height)
 				VARINT_FIELD(block_cumulative_size)
-				FIELDS(cumulative_difficulty)
+				VARINT_UINT128T(cumulative_difficulty)
 				VARINT_FIELD(already_generated_coins)
 				VARINT_FIELD(already_donated_coins)
 				VARINT_FIELD(scratch_offset)
@@ -259,6 +260,8 @@ namespace currency
 		template<class t_ids_container, class t_blocks_container, class t_missed_container>
 		bool  get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs);
 
+		bool rollback_blockchain(size_t rollback_height);
+
 	private:
 		//new structure
 		typedef SwappedVector<BlockEntry> Blocks;
@@ -349,8 +352,6 @@ namespace currency
 		bool resync_spent_tx_flags();
 		bool prune_ring_signatures_if_need();
 		bool prune_ring_signatures(uint64_t height, uint64_t& transactions_pruned, uint64_t& signatures_pruned);
-
-
 	};
 }
 

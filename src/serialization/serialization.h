@@ -33,7 +33,7 @@ struct serializer
   }
   static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type) {
     //serialize_custom(ar, v, typename has_free_serializer<T>::type());
-    return v.do_serialize(ar);
+	  return v.do_serialize(ar);
   }
   static void serialize_custom(Archive &ar, T &v, boost::true_type) {
   }
@@ -72,36 +72,43 @@ inline bool do_serialize(Archive &ar, T &v)
     ar.tag(#f); \
     bool r = ::do_serialize(ar, f); \
     if (!r || !ar.stream().good()) return false; \
-  } while(0);
+                        } while(0);
 #define FIELD_N(t, f) \
   do { \
     ar.tag(t); \
     bool r = ::do_serialize(ar, f); \
     if (!r || !ar.stream().good()) return false; \
-  } while(0);
+                        } while(0);
 #define FIELDS(f) \
   do { \
     bool r = ::do_serialize(ar, f); \
     if (!r || !ar.stream().good()) return false; \
-  } while(0);
+                        } while(0);
 #define FIELD(f) \
   do { \
     ar.tag(#f); \
     bool r = ::do_serialize(ar, f); \
     if (!r || !ar.stream().good()) return false; \
-  } while(0);
+                        } while(0);
 #define VARINT_FIELD(f) \
   do { \
     ar.tag(#f); \
     ar.serialize_varint(f); \
     if (!ar.stream().good()) return false; \
-  } while(0);
+                        } while(0);
 #define VARINT_FIELD_N(t, f) \
   do { \
     ar.tag(t); \
     ar.serialize_varint(f); \
     if (!ar.stream().good()) return false; \
-  } while(0);
+                        } while(0);
+
+#define VARINT_UINT128T(f) \
+	do { \
+	    ar.tag(#f); \
+		ar.serialize_uint128_t(f); \
+		if (!ar.stream().good()) return false; \
+	} while (0);
 
 
 namespace serialization {

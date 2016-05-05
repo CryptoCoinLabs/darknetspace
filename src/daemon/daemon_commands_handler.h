@@ -50,6 +50,43 @@ public:
 	m_cmd_binder.set_handler("getinfo", boost::bind(&daemon_cmmands_handler::getinfo, this, _1), "Print many statistics data");
 	m_cmd_binder.set_handler("clear_pool", boost::bind(&daemon_cmmands_handler::clear_pool, this, _1), "Clear pool transactions and keyimages");
 	m_cmd_binder.set_handler("clear_peerlist", boost::bind(&daemon_cmmands_handler::clear_peerlist, this, _1), "Clear peers list");
+	m_cmd_binder.set_handler("rollback", boost::bind(&daemon_cmmands_handler::rollback, this, _1), "rollback <target_height>, delete all blocks from target_height to current height");
+	}
+
+	bool rollback(const std::vector<std::string>& args)
+	{
+		if (args.empty())
+		{
+			std::cout << "expected: rollback (<block_hash> | <block_height>)" << std::endl;
+			return true;
+		}
+
+		const std::string& arg = args.front();
+		try
+		{
+			uint64_t height = boost::lexical_cast<uint64_t>(arg);
+			if (height == 0 || height > m_srv.get_payload_object().get_core().get_current_blockchain_height())
+			{
+				std::cout << "wrong height, must be biggger than zero and less than current blockchain height" << ENDL;
+				return true;
+			}
+
+			bool bSuccess = m_srv.get_payload_object().get_core().get_blockchain_storage().rollback_blockchain(height);
+			if (bSuccess = false)
+			{
+				std::cout << "rollback to " << height << " failed." << ENDL;
+			}
+			else
+			{
+				std::cout << "rollback to " << height << " successfully." << ENDL;
+			}
+		}
+		catch (boost::bad_lexical_cast&)
+		{
+			std::cout << "rollback run error" << std::endl;
+		}
+
+		return true;
 	}
 
 	bool clear_pool(const std::vector<std::string>& args)
