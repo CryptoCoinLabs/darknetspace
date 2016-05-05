@@ -14,6 +14,7 @@
 
 #include "common/varint.h"
 #include "warnings.h"
+#include "currency_core/difficulty.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4244)
@@ -101,7 +102,7 @@ struct binary_archive<false> : public binary_archive_base<std::istream, false>
     serialize_varint(nLower);
     
 	uint128_t nTemp(nUpper, nLower);
-	v = uint128_n2b(nTemp);
+	v = currency::uint128_n2b(nTemp);
   }		
 
   void begin_array(size_t &s)
@@ -170,7 +171,7 @@ struct binary_archive<true> : public binary_archive_base<std::ostream, true>
   void serialize_uint128_t(T &v)
   {
 	uint64_t lowpart, highpart;
-	uint128_t value = uint128_b2n(v);
+	uint128_t value = currency::uint128_b2n(v);
 
 	highpart = value.upper();
 	lowpart = value.lower();
