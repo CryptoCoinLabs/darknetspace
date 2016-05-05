@@ -57,7 +57,7 @@ public:
 	{
 		if (args.empty())
 		{
-			std::cout << "expected: rollback (<block_hash> | <block_height>)" << std::endl;
+			std::cout << "expected: rollback (<block_height>)" << std::endl;
 			return true;
 		}
 
